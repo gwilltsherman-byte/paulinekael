@@ -79,9 +79,15 @@ jobs:
           git init -q -b build-cache
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code origin refs/heads/build-cache >/dev/null 2>&1; then
+            git fetch -q --depth=1 origin build-cache
+            git reset --soft FETCH_HEAD
+          fi
           git add -A
+          if git diff --cached --quiet; then exit 0; fi
           git commit -qm "Caches $(date -u +%F)"
-          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" build-cache
+          git push -q origin HEAD:refs/heads/build-cache
       - name: Publish to the site branch
         working-directory: site
         env:
@@ -90,6 +96,12 @@ jobs:
           git init -q -b site
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code origin refs/heads/site >/dev/null 2>&1; then
+            git fetch -q --depth=1 origin site
+            git reset --soft FETCH_HEAD
+          fi
           git add -A
+          if git diff --cached --quiet; then exit 0; fi
           git commit -qm "App build $(date -u +%F)"
-          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" site
+          git push -q origin HEAD:refs/heads/site

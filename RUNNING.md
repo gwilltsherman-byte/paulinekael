@@ -1,52 +1,59 @@
-# Run Kael on Mac and iPhone
+# Use Kael on Mac and iPhone
 
-## GitHub Pages
+[Open Kael](https://gwilltsherman-byte.github.io/paulinekael/) in Safari. The app runs on GitHub Pages and works with
+cellular data or any Wi-Fi. Your Mac does not need to stay on.
 
-Open [Kael](https://gwilltsherman-byte.github.io/kael-pages/) in your Mac's
-browser or iPhone Safari. On iPhone choose Share, Add to Home Screen, then Add.
-If offered, leave Open as Web App enabled. Start rating films from that icon.
-Ratings are stored on the device. Use Settings, Backup and Restore to move
-them between devices.
+## Install the app
 
-The public `gwilltsherman-byte/kael-pages` repository contains only the built
-app and its film data. This source repository remains private. Free Pages
-hosting uses the public repository's `site` branch and `/(root)`.
+1. Open [Kael](https://gwilltsherman-byte.github.io/paulinekael/) in Safari.
+2. **iPhone:** choose **Share > Add to Home Screen**, then **Add**.
+   If offered, leave **Open as Web App** enabled.
+3. **Mac with macOS Sonoma 14 or later:** choose **File > Add to Dock**, then **Add**.
+4. Open the new app icon and rate at least three films to get recommendations.
 
-The Refresh films and publish app workflow refreshes this private repository's
-`site` branch weekly and can be run from Actions. It needs the existing model
-files; `TMDB_TOKEN` supplies posters and streaming details. Updates to the
-private built branch do not automatically update the public repository.
-To publish a refreshed build, copy only the contents of that branch into
-`kael-pages`'s `site` branch and commit there. Do not copy the private source,
-other branches, credentials, or personal rating backups.
+After the app and catalogue load, saved recommendations can open offline.
+Posters, trailers and streaming links may still need the internet.
 
-## Run the built app locally on Mac
+## Saved ratings and backups
 
-You do not need to retrain the recommender to use the published build:
+Ratings, your watchlist, diary and settings stay saved on this device when
+you close and reopen Kael. They do not sync automatically between devices.
+In **Settings > Backup**, save a backup before clearing app data or moving to
+another device, then restore that file in the installed copy there.
+
+If you used the former `kael-pages` app, save a backup from that copy before
+switching installed apps. Open the new Kael app and restore the backup.
+
+## One repository
+
+The public `gwilltsherman-byte/paulinekael` repository contains the source on
+`main`, the built app on `site`, and film lookup caches on `build-cache`.
+GitHub Pages serves `site` from `/(root)`. A separate publishing repository
+is not needed.
+
+The **Refresh films and publish app** workflow updates the catalogue weekly
+and can be run from Actions. It uses the existing model files; the optional
+`TMDB_TOKEN` secret supplies posters and streaming details. New builds publish
+to this repository's `site` branch using ordinary commits.
+
+## Optional local development
+
+You do not need a local server to use the hosted app. To inspect the built
+copy locally:
 
 ```sh
-git clone --single-branch --branch site https://github.com/gwilltsherman-byte/kael-pages.git kael-site
+git clone --single-branch --branch site https://github.com/gwilltsherman-byte/paulinekael.git kael-site
 cd kael-site
 python3 -m http.server 8765 --bind 127.0.0.1
 ```
 
-Open
-`http://localhost:8765`. Keep Terminal open; Control-C stops the server.
-
-For your iPhone, stop the server and run:
-
-```sh
-python3 -m http.server 8765 --bind 0.0.0.0
-```
-
-Connect both devices to the same Wi-Fi. Find the Mac's IP address in System
-Settings, Wi-Fi, Details, TCP/IP, then open `http://MAC_IP:8765` in Safari.
-The Mac must stay awake. Use HTTPS on GitHub Pages for offline installation.
+Open `http://localhost:8765`. Keep Terminal open while testing; Control-C stops
+the server. This local copy has its own saved ratings.
 
 ## Build from source
 
-The main branch's `web/` folder is source and does not include exported film
-data. Serving that folder alone is not enough. The workflow copies the trained
-files in `model/` into `data/processed/`, refreshes the catalog, restores
-poster caches and runs `python -m taste.web --out site`. Use the existing
-`site` branch for the simplest local setup.
+The `main` branch's `web/` folder does not include exported film data. Serving
+that folder alone is not enough. The workflow copies the trained files in
+`model/` into `data/processed/`, refreshes the catalogue, restores poster
+caches and runs `python -m taste.web --out site`. Use the existing `site`
+branch for the simplest local setup.
