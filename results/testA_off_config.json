@@ -1,0 +1,14 @@
+{
+  "model": "k64_test_off",
+  "split": "test",
+  "n_users": 5000,
+  "strategies": [
+    "info_gain_ps"
+  ],
+  "prior_scale": null,
+  "noise_scale": null,
+  "ceiling": false,
+  "exact": false,
+  "by_rated": false,
+  "fair_pool": true
+}
