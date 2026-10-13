@@ -3,12 +3,14 @@
 ## GitHub Pages
 
 The `site` branch contains the built browser app and its film data.
-Pages is not currently enabled for this repository.
+Pages is not enabled for this private repository. GitHub currently requires a
+plan upgrade or a public repository to enable it. The local setup below works
+without changing visibility or upgrading.
 
 In repository Settings, Pages, choose Deploy from a branch, select `site`
 and `/(root)`, then Save. Use the address shown after GitHub publishes it.
 The expected project address is
-`https://gwilltsherman-byte.github.io/paulinekael/`.
+`https://gwilltsherman-byte.github.io/paulinekael-clean/`.
 
 This repository is private. Pages from private repositories requires a
 supported GitHub plan. A Pages website can be public even when its source
@@ -38,7 +40,7 @@ later automated refreshes need that workflow change. See [GitHub's Pages guide](
 You do not need to retrain the recommender to use the published build:
 
 ```sh
-git clone --single-branch --branch site https://github.com/gwilltsherman-byte/paulinekael.git kael-site
+git clone --single-branch --branch site https://github.com/gwilltsherman-byte/paulinekael-clean.git kael-site
 cd kael-site
 python3 -m http.server 8765 --bind 127.0.0.1
 ```
