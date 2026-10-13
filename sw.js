@@ -8,12 +8,12 @@
 //   it's served from the cache once fetched, and older builds' copies are dropped.
 const PREFIX = "kael-";
 const BASE = new URL("./", self.registration.scope);
-const SHELL = PREFIX + "shell-v13";
+const SHELL = PREFIX + "shell-v15";
 const SLOW = 3500;
 const SLOW_AFTER_SLOW = 500;   // once one request has timed out, the next ones don't wait as long
 let slowUntil = 0;           // until when (ms since 1970) the network counts as unresponsive
 const DATA = PREFIX + "data-v3";
-const SHELL_FILES = ["./", "index.html", "app.css", "app.js", "engine.js", "importer.js", "search.js", "share.js", "manifest.webmanifest",
+const SHELL_FILES = ["install-persistence.js", "./", "index.html", "app.css", "app.js", "engine.js", "importer.js", "search.js", "share.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png",
   "fonts/fraunces-latin.woff2", "fonts/fraunces-latin-ext.woff2"];
 
@@ -71,3 +71,4 @@ function networkFirst(e, cacheName) {
   fresh.then(() => clearTimeout(timer), () => clearTimeout(timer));   // the network answered (or failed): no longer slow
   return Promise.race([fresh.catch(kept), slow]);
 }
+
