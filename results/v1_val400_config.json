@@ -1,0 +1,17 @@
+{
+  "model": "k32",
+  "split": "val",
+  "n_users": 400,
+  "strategies": [
+    "popular",
+    "random",
+    "pop_entropy",
+    "info_gain",
+    "info_gain_ps",
+    "targeted"
+  ],
+  "prior_scale": 1.0,
+  "noise_scale": 1.0,
+  "ceiling": true,
+  "exact": false
+}

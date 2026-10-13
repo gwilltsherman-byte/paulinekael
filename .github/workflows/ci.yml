@@ -1,0 +1,32 @@
+# Quick checks on every pull request and on main: the unit tests, and a syntax check of the
+# app and the Python. No data download and no deploy, so it takes about a minute.
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests (engine, search, share links, import, and the app's files agreeing)
+        run: npm test
+      - name: Syntax check the app and scripts
+        run: for f in web/*.js scripts/*.mjs; do node --check "$f"; done
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Python tests (build helpers that need no data packages)
+        run: python -m unittest discover -s tests -p 'test_*.py' -t .
+      - name: Syntax check the Python
+        run: python -m compileall -q taste scripts
