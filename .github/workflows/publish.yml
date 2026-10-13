@@ -1,0 +1,67 @@
+# Weekly, on every push to main that changes the app, and on demand: pull the latest
+# IMDb + Wikidata data, re-place every film, fetch posters / streaming / trailers
+# from TMDB, rebuild the app, and push it to the "site" branch, which Netlify publishes.
+name: Refresh films and publish app
+
+on:
+  schedule:
+    - cron: "17 9 * * 1"   # Mondays 09:17 UTC
+  push:
+    branches: [main]
+    paths-ignore:   # not part of the app, so no publish (each one costs Netlify credits)
+      - "**.md"
+      - "results/**"
+      - "scripts/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90  # the first poster lookup takes ~30 min; later runs a few seconds
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Model files
+        run: mkdir -p data/processed && cp model/k64.npz model/k64.json model/items.parquet model/seen.npz data/processed/
+      - name: Pull latest IMDb + Wikidata and place every film
+        run: python -m taste.update
+      - name: Restore poster + streaming caches from the published app
+        run: |
+          git fetch -q --depth=1 origin site || true
+          for f in poster-cache extras-cache; do
+            git show origin/site:data/$f.json > data/processed/$f.json 2>/dev/null || rm -f data/processed/$f.json
+          done
+      - name: Posters from TMDB (skipped without the TMDB_TOKEN secret)
+        continue-on-error: true  # a TMDB problem shouldn't block the weekly film update
+        env:
+          TMDB_TOKEN: ${{ secrets.TMDB_TOKEN }}
+        run: python -m taste.posters
+      - name: Where to watch + trailers from TMDB (skipped without the TMDB_TOKEN secret)
+        continue-on-error: true
+        env:
+          TMDB_TOKEN: ${{ secrets.TMDB_TOKEN }}
+        run: python -m taste.extras
+      - name: Build the app
+        run: python -m taste.web --out site
+      - name: Publish to the site branch
+        working-directory: site
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -q -b site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "App build $(date -u +%F)"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" site

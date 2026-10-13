@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Filmsense – the movie quiz that learns your taste</title>
+  <meta name="description" content="Rate a few films you've seen and Filmsense learns your taste, then picks movies you'll love, with a % match, trailers and where to stream them. Free, no sign-up.">
+  <link rel="canonical" href="https://film-sense.netlify.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Filmsense">
+  <meta property="og:url" content="https://film-sense.netlify.app/">
+  <meta property="og:title" content="Filmsense – the movie quiz that learns your taste">
+  <meta property="og:description" content="Rate a few films you've seen and Filmsense learns your taste, then picks movies you'll love, with a % match, trailers and where to stream them. Free, no sign-up.">
+  <meta property="og:image" content="https://film-sense.netlify.app/icons/share.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Filmsense: the movie quiz that learns your taste">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">
+    {"@context": "https://schema.org", "@type": "WebApplication", "name": "Filmsense", "url": "https://film-sense.netlify.app/",
+     "description": "Rate a few films you've seen and Filmsense learns your taste, then picks movies you'll love, with a % match, trailers and where to stream them. Free, no sign-up.", "applicationCategory": "EntertainmentApplication", "operatingSystem": "Any",
+     "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}
+  </script>
+  <meta name="theme-color" content="#08070b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Filmsense">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://image.tmdb.org">
+  <link rel="stylesheet" href="app.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <div id="backdrop" aria-hidden="true"></div>
+
+  <div id="loading" class="loading">
+    <div class="loading-mark" aria-hidden="true"></div>
+    <h1>Filmsense</h1>
+    <p class="tagline">The movie quiz that learns your taste</p>
+    <p id="loading-text">Loading 150,000 films…</p>
+    <div class="bar"><div id="loading-bar"></div></div>
+  </div>
+
+  <div id="app" hidden>
+    <!-- Rate: one film at a time, full screen -->
+    <section id="view-rate" class="view">
+      <header class="topbar">
+        <div class="pill" id="rate-count"></div>
+        <div class="topbar-right">
+          <button id="undo" class="icon-round" aria-label="Undo" hidden>
+            <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+          </button>
+          <button id="to-wall" class="pill-btn" aria-label="Poster wall">
+            <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>Wall
+          </button>
+        </div>
+      </header>
+      <div class="stage" id="rate-stage"></div>
+      <div class="actions five">
+        <button data-a="skip" class="act small" aria-label="Haven't seen it">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg><span>Not seen</span></button>
+        <button data-a="disliked" class="act nope" aria-label="Didn't like it">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg><span>Nope</span></button>
+        <button data-a="meh" class="act small meh" aria-label="It was OK">
+          <svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg><span>OK</span></button>
+        <button data-a="liked" class="act like" aria-label="Liked it">
+          <svg viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7.2 4.5 4.5 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/></svg><span>Liked</span></button>
+        <button data-a="loved" class="act love" aria-label="Loved it">
+          <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg><span>Loved</span></button>
+      </div>
+    </section>
+
+    <!-- Poster wall: tap everything you've seen -->
+    <section id="view-wall" class="view" hidden>
+      <header class="topbar">
+        <button id="wall-back" class="pill-btn">‹ Back</button>
+        <div class="pill" id="wall-count">Tap every film you've seen</div>
+      </header>
+      <div id="wall" class="wall"></div>
+      <div class="wall-bar">
+        <button id="wall-none" class="pill-btn wide">None seen</button>
+        <button id="wall-go" class="primary">Next</button>
+      </div>
+    </section>
+
+    <!-- Discover: full-screen picks -->
+    <section id="view-discover" class="view" hidden>
+      <header class="topbar">
+        <div class="seg" id="lists" role="tablist">
+          <button data-list="best" role="tab">Best bets</button>
+          <button data-list="taste" role="tab">Your taste</button>
+          <button data-list="together" role="tab" hidden>Together</button>
+        </div>
+        <button id="filters-btn" class="icon-round" aria-label="Filters">
+          <svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+          <b id="filter-dot" class="dot-badge" hidden></b>
+        </button>
+      </header>
+      <div class="stage" id="deck"></div>
+      <div class="actions three">
+        <button data-d="left" class="act nope" aria-label="Not for me">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg><span>Not for me</span></button>
+        <button data-d="up" class="act seen" aria-label="I've seen it">
+          <svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Seen it</span></button>
+        <button data-d="right" class="act save" aria-label="Save to watchlist">
+          <svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16.5l-5.5 4z"/></svg><span>Save</span></button>
+      </div>
+    </section>
+
+    <!-- Watchlist -->
+    <section id="view-watch" class="view scroll" hidden>
+      <header class="page-head"><h1>Watchlist</h1></header>
+      <div id="watch" class="grid"></div>
+    </section>
+
+    <!-- Search -->
+    <section id="view-search" class="view scroll" hidden>
+      <header class="page-head"><h1>Search</h1></header>
+      <input id="q" type="search" placeholder="Find a film…" autocomplete="off" autocorrect="off" spellcheck="false">
+      <ol id="results" class="rows"></ol>
+    </section>
+
+    <!-- You -->
+    <section id="view-me" class="view scroll" hidden>
+      <header class="page-head"><h1>You</h1></header>
+      <div class="stats" id="stats"></div>
+
+      <div class="panel">
+        <h3>Your taste</h3>
+        <div id="scales"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Watch together</h3>
+        <p>Send a friend your link. When they open it and rate a few films, you both get picks you'd each enjoy. When they send you theirs, it shows up here.</p>
+        <button id="share" class="primary">Share my taste</button>
+        <div id="friends"></div>
+      </div>
+
+      <div class="panel">
+        <h3>My streaming services</h3>
+        <p>Pick yours to see what you can watch right now, and filter to only those.</p>
+        <div id="services" class="services"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Import your ratings</h3>
+        <p>From Letterboxd (export .zip) or IMDb (ratings .csv). Your whole history makes picks much sharper.</p>
+        <label class="primary file-btn">
+          <input type="file" id="import-file" accept=".zip,.csv,text/csv,application/zip">Choose export file
+        </label>
+        <p id="import-result" class="import-result" hidden></p>
+        <details>
+          <summary>How to export</summary>
+          <p><b>Letterboxd:</b> letterboxd.com → Settings → Import &amp; Export → Export your data, then choose the .zip here.</p>
+          <p><b>IMDb:</b> imdb.com → Your Ratings → ⋯ → Export, then choose the .csv here.</p>
+        </details>
+      </div>
+
+      <h3 class="section">Your ratings</h3>
+      <ol id="mine" class="rows"></ol>
+      <button id="more-mine" class="pill-btn wide" hidden>Show all</button>
+      <div class="me-actions">
+        <button id="unhide" class="pill-btn" hidden></button>
+        <button id="reset" class="danger">Start over</button>
+      </div>
+      <p class="fine">Film data: <a href="https://grouplens.org/datasets/movielens/" target="_blank" rel="noopener">MovieLens</a>, <a href="https://developer.imdb.com/non-commercial-datasets/" target="_blank" rel="noopener">IMDb</a> and <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a>. Posters, trailers and streaming info via <a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a>; streaming data by <a href="https://www.justwatch.com" target="_blank" rel="noopener">JustWatch</a>. This product uses the TMDB API but is not endorsed or certified by TMDB. For personal, non-commercial use. <span id="updated"></span></p>
+    </section>
+
+    <nav class="tabbar">
+      <button data-view="rate" aria-label="Rate">
+        <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9 3v18"/></svg><span>Rate</span>
+      </button>
+      <button data-view="discover" aria-label="Discover">
+        <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg><span>Discover</span>
+      </button>
+      <button data-view="watch" aria-label="Watchlist">
+        <svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16.5l-5.5 4z"/></svg><span>Watchlist</span><b id="watch-count" class="count" hidden></b>
+      </button>
+      <button data-view="search" aria-label="Search">
+        <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/></svg><span>Search</span>
+      </button>
+      <button data-view="me" aria-label="You">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20c1.2-3.6 4.1-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg><span>You</span>
+      </button>
+    </nav>
+
+    <div id="sheet" class="sheet" hidden><div id="sheet-card" class="sheet-card" role="dialog" aria-modal="true"></div></div>
+    <div id="toast" class="toast" role="status" hidden></div>
+  </div>
+</body>
+</html>

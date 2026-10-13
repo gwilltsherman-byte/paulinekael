@@ -1,0 +1,10 @@
+# This folder is prebuilt by GitHub Actions (.github/workflows/publish.yml) and
+# pushed to the "site" branch; Netlify only needs to publish it.
+[build]
+  publish = "."
+  command = "echo prebuilt"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
