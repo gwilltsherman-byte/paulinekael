@@ -2,9 +2,9 @@
 
 [Run on Mac and iPhone](RUNNING.md), including GitHub hosting options.
 
-The built app is in the `site` branch. See [RUNNING.md](RUNNING.md) for Mac
-and iPhone setup. Pages hosting for this private copy requires a supported
-GitHub plan.
+Open [Kael](https://gwilltsherman-byte.github.io/kael-pages/) on Mac or iPhone.
+The public `kael-pages` repository holds the built app; this source repository
+remains private. See [RUNNING.md](RUNNING.md) for installation and local setup.
 
 Named after Pauline Kael (1919-2001), the film critic.
 

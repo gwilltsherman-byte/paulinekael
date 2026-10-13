@@ -2,50 +2,35 @@
 
 ## GitHub Pages
 
-The `site` branch contains the built browser app and its film data.
-Pages is not enabled for this private repository. GitHub currently requires a
-plan upgrade or a public repository to enable it. The local setup below works
-without changing visibility or upgrading.
-
-In repository Settings, Pages, choose Deploy from a branch, select `site`
-and `/(root)`, then Save. Use the address shown after GitHub publishes it.
-The expected project address is
-`https://gwilltsherman-byte.github.io/kael-pages/`.
-
-This repository is private. Pages from private repositories requires a
-supported GitHub plan. A Pages website can be public even when its source
-repository is private; check the Pages settings before publishing. You can
-use the local option below without changing repository visibility.
-
-Open the published address in your Mac's browser or iPhone Safari.
-On iPhone choose Share, Add to Home Screen, then Add. If offered, leave
-Open as Web App enabled. Start rating films from that Home Screen icon.
+Open [Kael](https://gwilltsherman-byte.github.io/kael-pages/) in your Mac's
+browser or iPhone Safari. On iPhone choose Share, Add to Home Screen, then Add.
+If offered, leave Open as Web App enabled. Start rating films from that icon.
 Ratings are stored on the device. Use Settings, Backup and Restore to move
 them between devices.
 
-The Refresh films and publish app workflow refreshes `site` weekly and can
-be run from Actions. It needs the existing model files; `TMDB_TOKEN` supplies
-posters and streaming details. Without poster data, the app omits films
-without posters. Add an empty `.nojekyll` file at the root of the `site` branch
-before branch publishing so GitHub serves the built files directly.
+The public `gwilltsherman-byte/kael-pages` repository contains only the built
+app and its film data. This source repository remains private. Free Pages
+hosting uses the public repository's `site` branch and `/(root)`.
 
-The existing workflow pushes `site` using `GITHUB_TOKEN`. Those pushes do not
-trigger a Pages build. For automatic weekly Pages publishing, extend that workflow
-with GitHub's Pages artifact upload and deploy steps and select GitHub Actions
-as the Pages source. The branch setup above is the simpler initial publication;
-later automated refreshes need that workflow change. See [GitHub's Pages guide](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site).
+The Refresh films and publish app workflow refreshes this private repository's
+`site` branch weekly and can be run from Actions. It needs the existing model
+files; `TMDB_TOKEN` supplies posters and streaming details. Updates to the
+private built branch do not automatically update the public repository.
+To publish a refreshed build, copy only the contents of that branch into
+`kael-pages`'s `site` branch and commit there. Do not copy the private source,
+other branches, credentials, or personal rating backups.
 
 ## Run the built app locally on Mac
 
 You do not need to retrain the recommender to use the published build:
 
 ```sh
-git clone --single-branch --branch site https://github.com/gwilltsherman-byte/paulinekael.git kael-site
+git clone --single-branch --branch site https://github.com/gwilltsherman-byte/kael-pages.git kael-site
 cd kael-site
 python3 -m http.server 8765 --bind 127.0.0.1
 ```
 
-Authenticate to GitHub to clone this private repository. Open
+Open
 `http://localhost:8765`. Keep Terminal open; Control-C stops the server.
 
 For your iPhone, stop the server and run:
