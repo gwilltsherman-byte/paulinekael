@@ -1,6 +1,6 @@
 # Weekly, on every push to main that changes the app, and on demand: pull the latest
 # IMDb + Wikidata data, re-place every film, fetch posters / streaming / trailers
-# from TMDB, rebuild the app, and push it to the "site" branch, which Netlify publishes.
+# from TMDB, rebuild the app, and push it to the "site" branch, which can be served as a static app.
 name: Refresh films and publish app
 
 on:
@@ -8,7 +8,7 @@ on:
     - cron: "17 9 * * 1"   # Mondays 09:17 UTC
   push:
     branches: [main]
-    paths-ignore:   # not part of the app, so no publish (each one costs Netlify credits)
+    paths-ignore:   # not part of the app, so no publish (each one costs build resources)
       - "**.md"
       - "results/**"
       - "scripts/**"

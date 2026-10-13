@@ -6,11 +6,13 @@
 // - data/meta.json: the same, and it names the current build.
 // - Other data files are requested as name?v=<build>. That exact URL never changes, so
 //   it's served from the cache once fetched, and older builds' copies are dropped.
-const SHELL = "shell-v12";
+const PREFIX = "kael-";
+const BASE = new URL("./", self.registration.scope);
+const SHELL = PREFIX + "shell-v13";
 const SLOW = 3500;
 const SLOW_AFTER_SLOW = 500;   // once one request has timed out, the next ones don't wait as long
 let slowUntil = 0;           // until when (ms since 1970) the network counts as unresponsive
-const DATA = "data-v2";
+const DATA = PREFIX + "data-v3";
 const SHELL_FILES = ["./", "index.html", "app.css", "app.js", "engine.js", "importer.js", "search.js", "share.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png",
   "fonts/fraunces-latin.woff2", "fonts/fraunces-latin-ext.woff2"];
@@ -21,7 +23,7 @@ self.addEventListener("install", (e) => {
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => k !== SHELL && k !== DATA).map((k) => caches.delete(k))))
+    .then((keys) => Promise.all(keys.filter((k) => k.startsWith(PREFIX) && k !== SHELL && k !== DATA).map((k) => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -42,7 +44,7 @@ async function versioned(e, url) {
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== "GET" || url.origin !== location.origin) return;
+  if (e.request.method !== "GET" || url.origin !== location.origin || !url.pathname.startsWith(BASE.pathname)) return;
   if (url.pathname.includes("/data/") && url.searchParams.has("v")) {
     e.respondWith(versioned(e, url));
     return;
@@ -59,7 +61,7 @@ function networkFirst(e, cacheName) {
     return res;
   });
   e.waitUntil(fresh.catch(() => {}));   // keeps the worker alive to finish saving if we answered from the copy
-  const kept = () => caches.match(req, { ignoreSearch: true });
+  const kept = () => caches.open(cacheName).then(c => c.match(req, { ignoreSearch: true }));
   let timer;
   const wait = Date.now() < slowUntil ? SLOW_AFTER_SLOW : SLOW;
   const slow = new Promise((resolve) => { timer = setTimeout(resolve, wait); }).then(kept).then((hit) => {

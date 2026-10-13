@@ -93,11 +93,9 @@ Pinch zoom is switched off on purpose (`touch-action` in `app.css`, `user-scalab
 it knocks the full-screen cards out of place, but it also means people who rely on
 zooming can't.
 
-**Headers.** `web/netlify.toml` sends a Content-Security-Policy that allows this site,
-TMDB's image server and YouTube's privacy-friendly player, and nothing else. If you add
-another host (a second image CDN, an analytics script), add it there or the browser will
-block it. It also caches fonts and the versioned data files for a year; the app must
-therefore only ever request those as `name?v=<build>` (`tests/shell.test.mjs` checks).
+**Browser security.** The page's Content-Security-Policy limits scripts to this
+site, images to this site and TMDB, and trailers to YouTube's privacy-friendly
+player. The service worker keeps versioned film data for offline use.
 
 **Offline and weak signals.** The service worker answers from the copy kept on the phone
 when offline, and when the network hasn't replied within 3.5 seconds (0.5 once one request
@@ -122,7 +120,7 @@ film, builds the app into `site/`, and force-pushes that to the `site` branch.
 Between the build and the push, `scripts/smoke.mjs` loads the built data through the
 phone engine and runs a quiz on it (all files present and the right size, no NaN, enough
 films; with a TMDB token, posters and streaming data too). If it fails the workflow stops
-and the live site is left as it was. Netlify publishes the `site` branch. `model/` holds
+and the live site is left as it was. The built `site` branch can be published with GitHub Pages. `model/` holds
 the trained MovieLens model files the build needs.
 
 ```bash
@@ -295,4 +293,3 @@ users rate them, topped every list.
 - MovieLens and IMDb datasets are licensed for personal, non-commercial use only.
   Wikidata is CC0.
 - Each weekly build downloads ~1.1 GB from IMDb (on GitHub's machines, not yours).
-

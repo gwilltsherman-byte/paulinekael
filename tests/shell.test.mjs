@@ -32,26 +32,22 @@ test("the manifest's icons exist", () => {
   assert.equal(m.id, "./");
 });
 
-test("data files are only fetched with ?v=<build>, since netlify.toml caches them for a year", () => {
+test("data files are only fetched with ?v=<build>, for offline-cache versioning", () => {
   for (const f of ["app.js", "engine.js"]) {
     for (const [, arg] of read(f).matchAll(/\bfetch\(([^)]*)\)/g)) {
       assert.ok(arg.includes("?v=") || arg.includes("meta.json"), `${f}: fetch(${arg}) is not versioned`);
     }
   }
-  // ...and the file that names the build is the one thing that is never cached that long.
-  const toml = read("netlify.toml");
-  assert.ok(!/for = "\/data\/meta\.json"[^[]*immutable/.test(toml));
-  assert.ok(!/for = "\/data\/\*"/.test(toml), "a blanket /data/* rule would cover meta.json");
+
 });
 
 test("the Content-Security-Policy keeps scripts to this site and allows what the app uses", () => {
-  const csp = read("netlify.toml").match(/Content-Security-Policy = "([^"]+)"/)[1];
+  const csp = read("index.html").match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
   const dir = (name) => csp.split(";").map((d) => d.trim()).find((d) => d.startsWith(`${name} `));
   assert.equal(dir("script-src"), "script-src 'self'");
   assert.ok(dir("img-src").includes("https://image.tmdb.org") && dir("img-src").includes("data:") && dir("img-src").includes("blob:"));
   assert.ok(dir("frame-src").includes("https://www.youtube-nocookie.com"));
   assert.equal(dir("object-src"), "object-src 'none'");
-  assert.equal(dir("frame-ancestors"), "frame-ancestors 'none'");
   assert.ok(!/script-src[^;]*unsafe/.test(csp));
 });
 

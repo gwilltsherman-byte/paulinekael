@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://paulinekael.netlify.app/sitemap.xml
+Sitemap: https://gwilltsherman-byte.github.io/kael-pages/sitemap.xml
