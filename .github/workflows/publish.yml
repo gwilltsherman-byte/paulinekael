@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths-ignore:   # not part of the app, so no publish (each one costs build resources)
       - "**.md"
+      - "docs/**"
       - "results/**"
       - "scripts/**"
       - "tests/**"

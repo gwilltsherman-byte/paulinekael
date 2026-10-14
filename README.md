@@ -1,12 +1,20 @@
 # Kael
 
-**[Open Kael](https://gwilltsherman-byte.github.io/paulinekael/)** on Mac or iPhone.
+**[Open Kael](https://gwilltsherman-byte.github.io/paulinekael/)** · [Use on Mac or iPhone](RUNNING.md) · [Report a problem](https://github.com/gwilltsherman-byte/paulinekael/issues/new)
 
-[Run Kael on Mac and iPhone](RUNNING.md), including GitHub hosting options.
-This public repository contains the source on `main` and the published app on
-`site`. See [RUNNING.md](RUNNING.md) for installation, saved data and backups.
+Kael is my movie recommender. Rate films you’ve seen to get suggestions that learn from your taste. Find something for tonight, keep a watchlist and record what you watch. Your ratings and lists stay on your device, with backups for moving to another browser or phone.
 
-Named after Pauline Kael (1919-2001), the film critic.
+<img src="docs/screenshots/overview.jpg" alt="Kael’s poster wall for choosing and rating films you have seen" width="100%">
+
+## Start finding a film
+
+1. Choose **Rate** and answer for films you’ve seen; skip the ones you haven’t.
+2. Open **Home** for your picks, or **Tonight** for suggestions that fit your evening.
+3. Save films to your watchlist, or log a viewing in your diary.
+
+Named after Pauline Kael (1919–2001), the film critic. The source is on `main` and the published app is on `site`.
+
+## Behind the recommendations
 
 A movie recommender that asks you to rate films. Its model uses 30 million
 MovieLens ratings to compare film preferences, updates your profile after each
