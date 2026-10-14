@@ -1,8 +1,8 @@
 # Kael
 
-[Run on Mac and iPhone](RUNNING.md), including GitHub hosting options.
+**[Open Kael](https://gwilltsherman-byte.github.io/paulinekael/)** on Mac or iPhone.
 
-Open [Kael](https://gwilltsherman-byte.github.io/paulinekael/) on Mac or iPhone.
+[Run Kael on Mac and iPhone](RUNNING.md), including GitHub hosting options.
 This public repository contains the source on `main` and the published app on
 `site`. See [RUNNING.md](RUNNING.md) for installation, saved data and backups.
 
