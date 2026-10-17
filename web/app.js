@@ -84,7 +84,12 @@ const store = {
 // Everything read back from storage (or from a backup file) is checked first, so one bad
 // entry can't stop the app opening.
 const isId = (x) => Number.isInteger(x) && x > 0;
-const isDay = (x) => typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x);
+const isDay = (x) => {
+  if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
+  const d = new Date(`${x}T12:00:00`);
+  return Number.isFinite(d.getTime()) && d.getFullYear() === Number(x.slice(0, 4))
+    && d.getMonth() + 1 === Number(x.slice(5, 7)) && d.getDate() === Number(x.slice(8, 10));
+};
 const isAnswer = (a) => a === null || (typeof a === "string" && Object.hasOwn(LABELS, a))
   || (typeof a === "number" && a >= 0.5 && a <= 5);
 const asList = (v) => (Array.isArray(v) ? v : []);
@@ -364,11 +369,47 @@ const CLOSE = `<button class="sheet-close" data-x="close" aria-label="Close"><sv
  *  keyboard or screen reader (and a sheet over the film page makes the film inert too). */
 function setInert() {
   const sheet = !$("sheet").hidden, film = !$("film").hidden;
-  document.querySelectorAll("#app > .view, #app > .tabbar").forEach((el) => { el.inert = sheet || film; });
+  document.querySelectorAll("#app > .view, #app > .tabbar, .masthead").forEach((el) => { el.inert = sheet || film; });
   $("film").inert = sheet;
 }
 
 let dismissSheet = null;   // closes the open sheet, if there is one
+
+/** Keep the same control focused when a selected state redraws its group. When the
+ *  next step has different controls, focus its container so keyboard users start there. */
+function replaceContent(el, html) {
+  const active = document.activeElement, hadFocus = el.contains(active);
+  const owner = hadFocus && active.closest("[data-i]");
+  const ownerId = owner && el.contains(owner) ? owner.dataset.i : null;
+  const key = hadFocus && ["id", "data-x", "data-i", "data-set", "data-rf", "data-change", "data-unlog"]
+    .find((attr) => active.hasAttribute(attr));
+  const value = key && active.getAttribute(key);
+  el.innerHTML = html;
+  if (el.id === "sheet-card") el.setAttribute("aria-label", el.querySelector("h3")?.textContent || "Options");
+  if (!hadFocus) return;
+  const scope = ownerId == null ? el : [...el.querySelectorAll("[data-i]")].find((node) => node.dataset.i === ownerId);
+  const next = key && scope && [...scope.querySelectorAll(`[${key}]`), scope]
+    .find((node) => node.getAttribute(key) === value);
+  if (next) next.focus({ preventScroll: true });
+  else { el.tabIndex = -1; el.focus({ preventScroll: true }); }
+}
+
+/** Inert keeps the rest of the app out of reach; wrapping Tab also keeps focus from
+ *  escaping a dialog into the browser's controls. */
+function trapDialogFocus(ev) {
+  if (ev.key !== "Tab") return;
+  const dialog = !$("sheet").hidden ? $("sheet-card") : !$("film").hidden ? $("film") : null;
+  if (!dialog) return;
+  const focusable = [...dialog.querySelectorAll('a[href], button, input, select, textarea, iframe, summary, [tabindex]')]
+    .filter((el) => !el.disabled && el.tabIndex >= 0 && !el.closest('[hidden], [inert]') && el.getClientRects().length);
+  const first = focusable[0], last = focusable.at(-1), active = document.activeElement;
+  if (!first) { ev.preventDefault(); dialog.focus({ preventScroll: true }); }
+  else if (ev.shiftKey && (active === first || active === dialog || !dialog.contains(active))) {
+    ev.preventDefault(); last.focus({ preventScroll: true });
+  } else if (!ev.shiftKey && (active === last || !dialog.contains(active))) {
+    ev.preventDefault(); first.focus({ preventScroll: true });
+  }
+}
 
 /** Open a bottom sheet. onClick(action, event) handles [data-x] buttons; return true to keep it open. */
 function openSheet(html, onClick) {
@@ -416,21 +457,37 @@ function askRating(i, { when = "none", current = null } = {}) {
   const row = () => WHEN.map(([v, l]) => `<button class="opt" data-x="when:${v}" aria-pressed="${w === v}">${l}</button>`).join("");
   return openSheet(`<div class="detail-head">${poster(i, "w185")}<div><h3>${esc(title(i))}</h3>
       <div class="detail-meta">${esc(subline(i))}</div></div></div>
-    <p class="sub">${current ? "Change your rating" : "How was it?"}</p>
-    <div class="rate-grid">${Object.keys(LABELS).map((k) =>
-      `<button data-x="${k}"${k === current ? ' class="on" aria-current="true"' : ""}><span class="dot" style="background:${COLORS[k]}"></span>${LABELS[k]}</button>`).join("")}</div>
     <h4 class="opt-h">When did you watch it?</h4>
     <div class="opts" id="when">${row()}</div>
-    <input type="date" id="when-date" class="date-in" aria-label="Date you watched it" max="${isoDay()}" value="${isoDay(-1)}"${w === "other" ? "" : " hidden"}>
+    <input type="date" id="when-date" class="date-in" aria-label="Date you watched it" aria-describedby="when-error" max="${isoDay()}" value="${isoDay(-1)}"${w === "other" ? " required" : " hidden"}>
+    <p id="when-error" class="field-error" role="alert" hidden></p>
+    <p class="sub">${current ? "Choose a rating to save your changes" : "How was it? Choose a rating to save."}</p>
+    <div class="rate-grid">${Object.keys(LABELS).map((k) =>
+      `<button data-x="${k}" aria-pressed="${k === current}"${k === current ? ' class="on"' : ""}><span class="dot" style="background:${COLORS[k]}"></span>${LABELS[k]}</button>`).join("")}</div>
     ${current ? `<button class="cancel remove" data-x="remove">Remove rating</button>` : ""}
     <button class="cancel" data-x="close">Cancel</button>`, (x) => {
     if (x.startsWith("when:")) {
       w = x.slice(5);
-      $("when").innerHTML = row();
-      $("when-date").hidden = w !== "other";
+      replaceContent($("when"), row());
+      const input = $("when-date");
+      input.hidden = w !== "other";
+      input.required = w === "other";
+      input.removeAttribute("aria-invalid");
+      $("when-error").hidden = true;
+      if (w === "other") input.focus({ preventScroll: true });
       return true;
     }
-    if (LABELS[x]) date = { today: isoDay(), yesterday: isoDay(-1), other: $("when-date").value || null }[w] ?? null;
+    if (LABELS[x]) {
+      const input = $("when-date");
+      if (w === "other" && (!isDay(input.value) || input.value > isoDay())) {
+        $("when-error").textContent = "Choose a valid date, today or earlier.";
+        $("when-error").hidden = false;
+        input.setAttribute("aria-invalid", "true");
+        input.focus({ preventScroll: true });
+        return true;
+      }
+      date = { today: isoDay(), yesterday: isoDay(-1), other: input.value || null }[w] ?? null;
+    }
     return false;
   }).then((x) => (LABELS[x] ? { label: x, date } : x === "remove" ? { remove: true } : null));
 }
@@ -534,7 +591,7 @@ function renderFilm(i, play) {
   const meta = [year(i), hm(runtime(i)), sc10 ? `IMDb ${(sc10 / 10).toFixed(1)}` : ""].filter(Boolean).join(" · ");
   const more = moreLike(i, sc);
   filmSc = sc;
-  const btn = (f, icon, text, cls = "") => `<button class="fa${cls}" data-f="${f}">${icon}<span>${text}</span></button>`;
+  const btn = (f, icon, text, cls = "") => `<button class="fa${cls}" data-f="${f}"${f === "save" ? ` aria-pressed="${saved}"` : ""}>${icon}<span>${text}</span></button>`;
   $("film").innerHTML = `
     <div class="film-hero${play ? " playing" : ""}" id="film-hero">
       ${play ? trailerFrame(i) : `${posterUrl(i, "w342") ? `<img class="film-blur" src="${posterUrl(i, "w342")}" alt="">` : ""}<div class="film-hero-shade"></div>`}
@@ -553,8 +610,8 @@ function renderFilm(i, play) {
       </div>
       <div class="film-match">
         ${label ? `<button class="your-rating" data-f="rate" style="--rc:${COLORS[label]}" aria-label="${YOURS[label]}. Change your rating"><span class="dot"></span>${YOURS[label]}${ICON.edit}</button>`
-          : matchPill(E.match(sc[i], sd))}
-        ${!label && why ? `<p class="fwhy">${why}</p>` : ""}
+          : S.rated >= 3 ? matchPill(E.match(sc[i], sd)) : `<p class="match-start">Rate ${3 - S.rated} more film${S.rated === 2 ? "" : "s"} to find your match.</p>`}
+        ${!label && S.rated >= 3 && why ? `<p class="fwhy">${why}</p>` : ""}
       </div>
       <div class="film-actions">
         ${trailer(i) ? btn("trailer", ICON.play, "Trailer") : ""}
@@ -563,10 +620,10 @@ function renderFilm(i, play) {
         ${label || saved ? "" : btn("hide", FICON.nope, "Not for me")}
       </div>
       <section class="film-sec" id="film-about"><div class="skel"></div><div class="skel short"></div></section>
-      <section class="film-sec"><h4>Where to watch (US)</h4><div class="where">${where}</div></section>
+      <section class="film-sec"><h2>Where to watch (US)</h2><div class="where">${where}</div></section>
       <section class="film-sec" id="film-people" hidden></section>
       <section class="film-sec" id="film-dir" hidden></section>
-      ${more.length ? `<section class="film-sec"><h4>More like this</h4><div class="shelf-row">${more.map((j, k) => tile(j, true, sc, k < 4)).join("")}</div></section>` : ""}
+      ${more.length ? `<section class="film-sec"><h2>More like this</h2><div class="shelf-row">${more.map((j, k) => tile(j, true, sc, k < 4)).join("")}</div></section>` : ""}
       <div class="film-links"><a href="${imdbUrl(i)}" target="_blank" rel="noopener">IMDb page</a></div>
     </div>`;
 }
@@ -585,7 +642,7 @@ function fillAbout(i, a) {
     <b>${esc(name)}</b><small>${esc(role)}</small></div>`;
   const faces = [...(directors || []).map((d) => face(d, "Director", "")), ...(cast || []).map(([n, r, ph]) => face(n, r, ph))];
   people.hidden = !faces.length;
-  people.innerHTML = faces.length ? `<h4>Cast &amp; crew</h4><div class="people-row">${faces.join("")}</div>` : "";
+  people.innerHTML = faces.length ? `<h2>Cast &amp; crew</h2><div class="people-row">${faces.join("")}</div>` : "";
   const hero = $("film-hero");
   if (backdrop && hero && !hero.classList.contains("playing")) {
     const img = new Image();
@@ -605,7 +662,7 @@ function fillDirector(i) {
       const others = (filmsByDirector.get(n) || []).filter((j) => j !== i && E.films.votes[j] >= 500 && !noArt.has(j))
         .sort((a, b) => E.films.votes[b] - E.films.votes[a]).slice(0, 16);
       if (others.length < 2) continue;
-      box.innerHTML = `<h4>More from ${esc(D.names[n])}</h4><div class="shelf-row">${others.map((j, k) => tile(j, true, filmSc, k < 4)).join("")}</div>`;
+      box.innerHTML = `<h2>More from ${esc(D.names[n])}</h2><div class="shelf-row">${others.map((j, k) => tile(j, true, filmSc, k < 4)).join("")}</div>`;
       box.hidden = false;
       return;
     }
@@ -669,7 +726,7 @@ async function filmAction(f, ev) {
     const hero = $("film-hero");
     hero.classList.add("playing");
     hero.innerHTML = trailerFrame(i);
-    $("film").scrollTo({ top: 0, behavior: "smooth" });
+    $("film").scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     return;
   }
   if (f === "save") {
@@ -678,6 +735,7 @@ async function filmAction(f, ev) {
     toast(on ? "Saved to Watchlist" : "Removed from Watchlist");
     const b = ev.target.closest(".fa");
     b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
     b.querySelector("span").textContent = on ? "Saved" : "Save";
     $("film").querySelector('[data-f="hide"]')?.toggleAttribute("hidden", on);
     refresh();
@@ -747,6 +805,8 @@ function posterReady(card, ms = 15000) {
  *  first one, or one brought back by Undo) fades in on top. */
 async function renderRate() {
   const n = S.rated;
+  if ($("rate-progress")) $("rate-progress").textContent = n < GOAL ? `${n} / ${GOAL}` : `${n} rated`;
+  if ($("rate-ready")) $("rate-ready").hidden = n < 3;
   $("rate-count").innerHTML = n < GOAL ? `<b>${n}</b> of ${GOAL} rated` : `<b>${n}</b> rated`;   // picks are sharp at GOAL
   const last = answers.at(-1);
   $("undo").hidden = !last;
@@ -754,6 +814,8 @@ async function renderRate() {
   const films = rateFilms(), stage = $("rate-stage"), gen = ++rateGen;
   if (!films.length) {
     stage.innerHTML = `<div class="empty">That's every film we had to ask you about.<br>Search for any film to rate more.</div>`;
+    if ($("rate-title")) $("rate-title").textContent = "Every opinion counts.";
+    if ($("rate-meta")) $("rate-meta").textContent = "Search for another film you've seen to keep shaping your taste.";
     rateBusy = false;
     return;
   }
@@ -786,6 +848,8 @@ async function renderRate() {
     setBackdrop(a);
     rateBusy = false;
   } else { setBackdrop(a); rateBusy = false; }
+  if ($("rate-title")) $("rate-title").textContent = title(a);
+  if ($("rate-meta")) $("rate-meta").textContent = subline(a);
   // The card after: hidden behind the front one, so its poster is ready in time.
   const back = stage.querySelector(".fcard.under");
   if (cardOf(back) !== (b ?? -1)) {
@@ -849,12 +913,12 @@ function openWall() {
 }
 
 function renderWall() {
-  $("wall").innerHTML = wallItems.map((i) => `<button class="tile${wallSel.has(i) ? " sel" : ""}" data-i="${i}" aria-pressed="${wallSel.has(i)}">
+  replaceContent($("wall"), wallItems.map((i) => `<button class="tile${wallSel.has(i) ? " sel" : ""}" data-i="${i}" aria-pressed="${wallSel.has(i)}">
       ${poster(i, "w342", "", true)}<span class="check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
-      <span class="t">${esc(title(i))}</span></button>`).join("");
+      <span class="t">${esc(title(i))}</span></button>`).join(""));
   const n = wallSel.size;
   $("wall-count").textContent = n ? `${n} seen` : "Tap the ones you've seen";
-  $("wall-go").textContent = n ? `Rate ${n} →` : `Next ${WALL} →`;
+  $("wall-go").innerHTML = `${n ? `Rate ${n}` : `Next ${WALL}`} ${ICON.chevron}`;
   setBackdrop(wallItems[0] ?? -1);
 }
 
@@ -1030,7 +1094,7 @@ function buildHome() {
     const sim = new Map(items.map((i) => [i, dotDir(dir(i), d)]));
     return [j, pick(items, sim, { vary: false })];
   });
-  if (alike[0]) add(`Because you loved ${title(alike[0][0])}`, alike[0][1], { because: alike[0][0] });
+  if (alike[0]) add(`Because you ${E.stars(S.answers.get(alike[0][0])) >= 4.5 ? "loved" : "liked"} ${title(alike[0][0])}`, alike[0][1], { because: alike[0][0] });
 
   add("New releases for you", pick(where((i) => f.year[i] >= now - 1 && f.votes[i] >= 300)));
 
@@ -1044,7 +1108,7 @@ function buildHome() {
   if (genresLiked[0] !== undefined) genreShelf(genresLiked[0]);
 
   add("Hidden gems", pick(where((i) => f.votes[i] < 15000 && sc[i] >= 3.8)), { sub: "Less-known films we think you'll love" });
-  if (alike[1]) add(`Because you loved ${title(alike[1][0])}`, alike[1][1], { because: alike[1][0] });
+  if (alike[1]) add(`Because you ${E.stars(S.answers.get(alike[1][0])) >= 4.5 ? "loved" : "liked"} ${title(alike[1][0])}`, alike[1][1], { because: alike[1][0] });
 
   const tasteItems = where((i) => f.votes[i] >= 2000 && sc[i] >= 3.75);
   const tasteKey = new Map(tasteItems.map((i) => [i, lf[i] - pen.get(i)]));
@@ -1095,21 +1159,24 @@ const ICON = {
 
 function heroCard(i) {
   const why = because(S.support(i, 8));
-  return `<div class="hero" data-i="${i}">
-    ${poster(i, "w780", "", true)}<div class="shade"></div>
-    <div class="hero-top"><div class="left">${badges(i)}</div>${matchPill(E.match(home.sc[i], S.sd(i)))}</div>
+  const context = E.flags[i]
+    ? "An exploratory pick, estimated from its cast, genre and other film details."
+    : S.rated < 20 ? "An early pick. A few more ratings will give Kael a clearer picture of your taste."
+      : "A pick from your overall taste profile, without a strong connection to one of your rated films.";
+  return `<article class="hero" data-i="${i}">
+    <button class="hero-art" data-info="${i}" aria-label="Explore ${esc(title(i))}">${poster(i, "w780", "", true)}</button>
     <div class="hero-info">
-      <div class="kicker">Top pick for you</div>
-      <h2>${esc(title(i))}</h2>
+      <h2><button data-info="${i}">${esc(title(i))}</button></h2>
       <p class="fsub">${esc(subline(i, true))}</p>
-      ${why ? `<p class="fwhy">${why}</p>` : ""}
+      <div class="hero-top">${matchPill(E.match(home.sc[i], S.sd(i)))}${E.flags[i] ? `<span class="hero-caution">An estimated match</span>` : ""}</div>
+      <p class="fwhy">${why || context}</p>
       <div class="hero-actions">
-        ${trailer(i) ? `<button class="btn light" data-trailer="${i}">${ICON.play}Trailer</button>` : ""}
-        <button class="btn glass" data-save="${i}">${ICON.save}Save</button>
-        <button class="btn glass round" data-info="${i}" aria-label="More about ${esc(title(i))}">${ICON.info}</button>
+        <button class="primary" data-info="${i}">Explore film ${ICON.chevron}</button>
+        <button class="btn glass" data-save="${i}" aria-pressed="false">${ICON.save}Save to watchlist</button>
+        ${trailer(i) ? `<button class="btn quiet" data-trailer="${i}">${ICON.play}Trailer</button>` : ""}
       </div>
     </div>
-  </div>`;
+  </article>`;
 }
 
 function tile(i, withMatch = true, sc = home?.sc, eager = false) {
@@ -1120,7 +1187,7 @@ function tile(i, withMatch = true, sc = home?.sc, eager = false) {
 
 function shelfHtml(sh, withMatch = true) {
   const head = sh.because !== undefined
-    ? `<div class="because">${poster(sh.because, "w92")}<div><small>Because you loved</small><h2>${esc(title(sh.because))}</h2></div></div>`
+    ? `<div class="because">${poster(sh.because, "w92")}<div><small>Because you ${E.stars(S.answers.get(sh.because)) >= 4.5 ? "loved" : "liked"}</small><h2>${esc(title(sh.because))}</h2></div></div>`
     : `<div><h2>${esc(sh.title)}</h2>${sh.sub ? `<p>${esc(sh.sub)}</p>` : ""}</div>`;
   return `<section class="shelf"><div class="shelf-head">${head}</div>
     <div class="shelf-row">${sh.items.map((i, k) => tile(i, withMatch, home?.sc, k < 6)).join("")}</div></section>`;
@@ -1133,12 +1200,12 @@ function renderHome() {
     const now = new Date().getFullYear(), f = E.films, pop = [];
     for (let i = 0; i < E.n; i++) if (f.year[i] >= now - 2 && f.votes[i] >= 20000 && !S.answers.has(i) && !noArt.has(i)) pop.push(i);
     pop.sort((a, b) => f.votes[b] - f.votes[a]);
-    el.innerHTML = `<div class="welcome">
-        <div class="kicker">Welcome to Kael</div>
-        <h2>Your picks start here</h2>
+    el.innerHTML = `<div class="welcome welcome-start"><div class="welcome-copy">
+        <h2>Good films.<br>Your kind of good.</h2>
         <p>Rate ${3 - S.rated} more film${S.rated === 2 ? "" : "s"} you've seen and Kael will start picking films for you. The more you rate, the better it gets to know you.</p>
         <div class="stack"><button class="primary" data-wall>Start with the poster wall</button>
-        <button class="btn glass wide" data-go="rate">Rate one by one</button></div>
+        <button class="btn glass" data-go="rate">Rate one by one</button></div></div>
+        <div class="welcome-films" aria-label="Popular films to rate">${pop.slice(0, 2).map((i) => `<button data-info="${i}" aria-label="Rate ${esc(title(i))}">${poster(i, "w342", "", true)}<span>${esc(title(i))}</span></button>`).join("")}</div>
       </div>`
       + shelfHtml({ title: "Popular right now", sub: "Seen any? Tap to rate it", items: pop.slice(0, 20) }, false);
     setBackdrop(pop[0] ?? -1);
@@ -1149,10 +1216,13 @@ function renderHome() {
   setBackdrop(home.hero ?? -1);
   if (home === homeShown) return;   // same shelves: keep them, posters and all
   homeShown = home;
-  el.innerHTML = (home.hero !== undefined ? heroCard(home.hero) : "")
-    + `<button class="tonight" data-tonight><span class="ic">${ICON.moon}</span>
-        <span class="tx"><b>What to watch tonight</b><span>Pick a mood and how long you've got</span></span>${ICON.chevron}</button>`
-    + home.shelves.map((sh) => shelfHtml(sh)).join("");
+  el.innerHTML = `<div class="home-feature">${home.hero !== undefined ? heroCard(home.hero) : `<div class="welcome"><h2>A fresh perspective.</h2><p>You've explored all your current picks. Rate more films or look through your watchlist.</p></div>`}
+    <aside class="home-aside">
+      <button class="tonight" data-tonight><span class="ic">${ICON.moon}</span>
+        <span class="tx"><b>What to watch tonight</b><span>A mood. A little time. Three films for you.</span></span>${ICON.chevron}</button>
+      <div class="taste-note"><h3>A taste all your own.</h3><p>${S.rated.toLocaleString()} films rated. Your opinions shape every recommendation.</p>
+        <button class="text-link" data-go="rate">Keep shaping your taste ${ICON.chevron}</button></div>
+    </aside></div>` + home.shelves.map((sh) => shelfHtml(sh)).join("");
 }
 
 function homeSave(i) {
@@ -1202,13 +1272,13 @@ async function openTonight() {
     return `<h3>Tonight</h3><p class="sub">${esc(MOODS.find((m) => m.id === st.mood).label)}${st.time ? ` · ${esc(TIMES.find(([v]) => v === st.time)[1].toLowerCase())}` : ""}</p>
       <div class="tn-list">${three.map((i) => {
         const why = because(S.support(i, 8)), saved = watch.includes(imdbOf(i));
-        return `<div class="tn"><button class="tn-poster" data-x="open:${i}">${poster(i, "w185")}</button>
+        return `<div class="tn"><button class="tn-poster" data-x="open:${i}" aria-label="Open ${esc(title(i))}">${poster(i, "w185")}</button>
           <div class="tn-main"><button class="tn-title" data-x="open:${i}">${esc(title(i))}</button>
             <div class="tn-sub">${esc(subline(i))}</div>
             <div class="tn-row">${matchPill(E.match(home.sc[i], S.sd(i)), true)}${logos(i, 3)}</div>
             ${why ? `<p class="tn-why">${why}</p>` : ""}
             <div class="tn-actions">${trailer(i) ? `<button class="btn small light" data-x="trailer:${i}">${ICON.play}Trailer</button>` : ""}
-              <button class="btn small glass" data-x="save:${i}">${ICON.save}${saved ? "Saved" : "Save"}</button></div>
+              <button class="btn small glass" data-x="save:${i}" aria-pressed="${saved}">${ICON.save}${saved ? "Saved" : "Save"}</button></div>
           </div></div>`;
       }).join("")}</div>
       <div class="tn-foot"><button class="btn glass" data-x="change">Change</button>
@@ -1219,22 +1289,22 @@ async function openTonight() {
       const [, g, v] = x.split(":");
       st[g] = g === "time" ? Number(v) : v;
       st.mine = $("tn-mine")?.checked ?? st.mine;
-      card().innerHTML = CLOSE + form();
+      replaceContent(card(), CLOSE + form());
       return true;
     }
     if (x === "go") {
       st.mine = $("tn-mine")?.checked ?? false;
       results = tonightPicks(st); at = 0;
-      card().innerHTML = CLOSE + shown();
+      replaceContent(card(), CLOSE + shown());
       card().scrollTop = 0;
       return true;
     }
-    if (x === "more") { at = at + 3 < results.length ? at + 3 : 0; card().innerHTML = CLOSE + shown(); return true; }
-    if (x === "change") { card().innerHTML = CLOSE + form(); return true; }
+    if (x === "more") { at = at + 3 < results.length ? at + 3 : 0; replaceContent(card(), CLOSE + shown()); return true; }
+    if (x === "change") { replaceContent(card(), CLOSE + form()); return true; }
     if (x.startsWith("save:")) {
       const i = Number(x.slice(5)), on = toggleWatch(i);
       if (on) dropFromHome(i);
-      card().innerHTML = CLOSE + shown();
+      replaceContent(card(), CLOSE + shown());
       return true;
     }
     return false;
@@ -1363,10 +1433,10 @@ function renderBrowse() {
     return `<button class="gen" data-genre="${esc(name)}">${url ? `<img src="${url}" alt="" loading="lazy">` : ""}<span>${esc(name)}</span></button>`;
   }).join("");
   el.innerHTML = `
-    <h4 class="browse-h">${mine ? "In the mood for" : "Moods"}</h4>
+    <h2 class="browse-h">${mine ? "In the mood for" : "Moods"}</h2>
     <div class="opts">${MOODS.filter((m) => m.id !== "any").map((m) => `<button class="opt" data-mood="${m.id}">${esc(m.label)}</button>`).join("")}</div>
-    <h4 class="browse-h">Genres</h4><div class="genre-grid">${tiles}</div>
-    <h4 class="browse-h">Decades</h4>
+    <h2 class="browse-h">Genres</h2><div class="genre-grid">${tiles}</div>
+    <h2 class="browse-h">Decades</h2>
     <div class="opts">${DECADES.map((d) => `<button class="opt" data-decade="${d}">${d}s</button>`).join("")}</div>`;
   setBackdrop(-1);
 }
@@ -1392,8 +1462,20 @@ function openBrowse(kind, value) {
 let libTab = "watch", ratedFilter = "all";
 
 function renderLib() {
-  document.querySelectorAll("#lib-tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.lib === libTab)));
-  for (const t of ["watch", "diary", "rated"]) $(`lib-${t}`).hidden = t !== libTab;
+  document.querySelectorAll("#lib-tabs button").forEach((b) => {
+    const selected = b.dataset.lib === libTab;
+    b.id = `tab-${b.dataset.lib}`;
+    b.setAttribute("aria-selected", String(selected));
+    b.setAttribute("aria-controls", `lib-${b.dataset.lib}`);
+    b.tabIndex = selected ? 0 : -1;
+  });
+  for (const t of ["watch", "diary", "rated"]) {
+    const panel = $(`lib-${t}`);
+    panel.hidden = t !== libTab;
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", `tab-${t}`);
+    panel.tabIndex = 0;
+  }
   if (libTab === "watch") renderWatch();
   else if (libTab === "diary") renderDiary();
   else renderRated();
@@ -1405,12 +1487,12 @@ function renderRated() {
   for (const [, l] of all) counts[l] = (counts[l] || 0) + 1;
   if (ratedFilter !== "all" && !counts[ratedFilter]) ratedFilter = "all";
   $("rated-filter").hidden = all.length < 2;
-  $("rated-filter").innerHTML = [["all", `All ${all.length}`], ...Object.keys(LABELS).filter((k) => counts[k]).map((k) => [k, `${SHORT[k]} ${counts[k]}`])]
-    .map(([k, l]) => `<button class="opt" data-rf="${k}" aria-pressed="${ratedFilter === k}">${l}</button>`).join("");
+  replaceContent($("rated-filter"), [["all", `All ${all.length}`], ...Object.keys(LABELS).filter((k) => counts[k]).map((k) => [k, `${SHORT[k]} ${counts[k]}`])]
+    .map(([k, l]) => `<button class="opt" data-rf="${k}" aria-pressed="${ratedFilter === k}">${l}</button>`).join(""));
   const list = all.filter(([, l]) => ratedFilter === "all" || l === ratedFilter).map(([i]) => i);
   const sc = S.scores();
-  $("mine").innerHTML = list.length ? list.slice(0, mineShown).map((i) => filmRow(i, sc, { scale: true })).join("")
-    : `<li class="empty">Nothing rated yet.<br>Rate a few films in the Rate tab.</li>`;
+  replaceContent($("mine"), list.length ? list.slice(0, mineShown).map((i) => filmRow(i, sc, { scale: true })).join("")
+    : `<li class="empty">Nothing rated yet.<br>Rate a few films in the Rate tab.</li>`);
   $("more-mine").hidden = list.length <= mineShown;
   $("more-mine").textContent = `Show all ${list.length}`;
   setBackdrop(list[0] ?? -1);
@@ -1506,12 +1588,12 @@ function renderLife() {
   const favs = rated.filter(([, st]) => st >= 4.5).map(([i]) => i).slice(0, 12);
 
   el.innerHTML = `
-    <h4 class="life-h">Genres you watch most</h4><div class="bars">${genreRows}</div>
-    <h4 class="life-h">Decades</h4>
+    <h3 class="life-h">Genres you watch most</h3><div class="bars">${genreRows}</div>
+    <h3 class="life-h">Decades</h3>
     <p class="life-cap" id="dec-cap">${fav !== undefined ? favCaption(fav) : "Tap a decade"}</p>
     <div class="cols" role="group" aria-label="Films you've rated by decade">${cols}</div>
     <div id="life-dirs"></div>
-    ${favs.length ? `<h4 class="life-h">Films you loved</h4><div class="fav-row">${favs.map((i) => `<button class="fav-tile" data-i="${i}">${poster(i, "w185")}<span>${esc(title(i))}</span></button>`).join("")}</div>` : ""}`;
+    ${favs.length ? `<h3 class="life-h">Films you loved</h3><div class="fav-row">${favs.map((i) => `<button class="fav-tile" data-i="${i}">${poster(i, "w185")}<span>${esc(title(i))}</span></button>`).join("")}</div>` : ""}`;
 
   directors().then((D) => {
     const box = $("life-dirs");
@@ -1523,7 +1605,7 @@ function renderLife() {
       byDir.set(n, v);
     }
     const top = [...byDir].filter(([, v]) => v[0] >= 2).sort((a, b) => b[1][0] - a[1][0] || b[1][1] - a[1][1]).slice(0, 5);
-    box.innerHTML = top.length ? `<h4 class="life-h">Directors you keep coming back to</h4><div class="dirs">${top.map(([n, [c, liked, films]]) => `
+    box.innerHTML = top.length ? `<h3 class="life-h">Directors you keep coming back to</h3><div class="dirs">${top.map(([n, [c, liked, films]]) => `
       <div class="dir"><div class="dir-films">${films.slice(0, 3).map((i) => poster(i, "w92")).join("")}</div>
         <div><b>${esc(D.names[n])}</b><span>${c} films · ${pctLiked(liked, c)}</span></div></div>`).join("")}</div>` : "";
   });
@@ -1548,8 +1630,8 @@ function renderDiary() {
     }
     const i = idx(id), l = labelOf(label);
     html += `<div class="entry" data-i="${i}"><span class="day">${Number(date.slice(8))}</span>${poster(i, "w92")}
-      <div class="entry-main"><b>${esc(title(i))}</b><span>${esc(String(year(i)))}${LABELS[l] ? ` · <i style="color:${COLORS[l]}">${LABELS[l]}</i>` : ""}</span></div>
-      <button class="entry-x" data-unlog="${n}" aria-label="Remove from diary"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>`;
+      <div class="entry-main"><button class="entry-title" aria-label="Open ${esc(title(i))}">${esc(title(i))}</button><span>${esc(String(year(i)))}${LABELS[l] ? ` · <i style="color:${COLORS[l]}">${LABELS[l]}</i>` : ""}</span></div>
+      <button class="entry-x" data-unlog="${n}" aria-label="Remove ${esc(title(i))} from diary"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>`;
   }
   el.innerHTML = html;
   more.hidden = items.length <= diaryShown;
@@ -1894,6 +1976,7 @@ async function restoreBackup(file) {
 
 function show(v) {
   view = v;
+  document.body.dataset.view = v;
   document.querySelectorAll(".view").forEach((s) => { s.hidden = s.id !== `view-${v}`; });
   const tab = { wall: "rate", settings: "me" }[v] || v;
   document.querySelectorAll(".tabbar button").forEach((b) => {
@@ -1924,19 +2007,10 @@ function renderWaiting() {
     $("results").innerHTML = `<li class="empty">Loading all ${Math.round(E.fullN / 1000)},000 films…<br>One moment.</li>`;
   } else {
     homeShown = null;
-    $("home").innerHTML = `<div class="welcome"><div class="kicker">Almost there</div><h2>Finding your picks</h2><p>Kael is still loading the whole film catalogue. Your picks will appear in a moment.</p></div>`;
+    $("home").innerHTML = `<div class="welcome"><h2>Finding your picks</h2><p>Kael is still loading the whole film catalogue. Your picks will appear in a moment.</p></div>`;
   }
 }
 
-function onboarding() {
-  openSheet(`<h3>Rate films you've seen</h3>
-    <p class="sub">Tap Loved, Liked, OK or Nope for each film, or Not seen to skip it. Every answer teaches Kael a little more about your taste, and the more you rate, the better your picks get.</p>
-    <div class="stack"><button class="primary" data-x="wall">Start with the poster wall (fastest)</button>
-    <button class="cancel" data-x="close">Rate one by one</button></div>`).then((x) => {
-    prefs.onboarded = true; savePrefs();
-    if (x === "wall") openWall();
-  });
-}
 
 function wire() {
   document.querySelectorAll(".tabbar button").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
@@ -1973,6 +2047,7 @@ function wire() {
     else { filmDepth = 0; hideFilm(); }
   });
   document.addEventListener("keydown", (ev) => {
+    trapDialogFocus(ev);
     if (ev.key === "Escape") { if (dismissSheet) dismissSheet(); else if (filmI >= 0) closeFilm(); return; }
     const key = (ev.key || "").toLowerCase(), act = RATE_KEYS[key];
     if ((!act && key !== "z") || ev.repeat || ev.metaKey || ev.ctrlKey || ev.altKey || view !== "rate"
@@ -2028,6 +2103,18 @@ function wire() {
   $("lib-tabs").addEventListener("click", (ev) => {
     const b = ev.target.closest("[data-lib]");
     if (b) { libTab = b.dataset.lib; renderLib(); $("view-lib").scrollTop = 0; }
+  });
+  $("lib-tabs").addEventListener("keydown", (ev) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(ev.key)) return;
+    const tabs = [...$("lib-tabs").querySelectorAll("[data-lib]")], at = tabs.indexOf(document.activeElement);
+    if (at < 0) return;
+    ev.preventDefault();
+    const next = ev.key === "Home" ? 0 : ev.key === "End" ? tabs.length - 1
+      : (at + (ev.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    libTab = tabs[next].dataset.lib;
+    renderLib();
+    tabs[next].focus({ preventScroll: true });
+    $("view-lib").scrollTop = 0;
   });
   $("rated-filter").addEventListener("click", (ev) => {
     const b = ev.target.closest("[data-rf]");
@@ -2135,8 +2222,6 @@ function openSharedFilm() {
 }
 
 async function start() {
-  // iOS Safari ignores user-scalable=no, so block its pinch gesture directly (see app.css).
-  for (const g of ["gesturestart", "gesturechange"]) document.addEventListener(g, (ev) => ev.preventDefault(), { passive: false });
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   watchPosters();
   try {
@@ -2187,13 +2272,13 @@ async function start() {
   setTimeout(() => { loading.hidden = true; }, 450);
   $("app").hidden = false;
   if (fullReady) warmSearch();
-  let got = false;
-  try { got = receiveTaste(); } catch { /* an odd link: carry on without it */ }
-  show(S.rated >= 3 && location.hash !== "#rate" ? "home" : "rate");
+  try { receiveTaste(); } catch { /* an odd link: carry on without it */ }
+  show(location.hash === "#rate" ? "rate" : "home");
   let restored = null;
   try { restored = sessionStorage.getItem("kael.restored"); sessionStorage.removeItem("kael.restored"); } catch { /* private mode */ }
   if (restored) toast(restored === "merge" ? "Backup merged in" : "Backup restored");
-  if (!openSharedFilm() && !prefs.onboarded && !answers.length && !got) onboarding();
+  openSharedFilm();
+  if (!prefs.onboarded) { prefs.onboarded = true; savePrefs(); }
 }
 
 start();
