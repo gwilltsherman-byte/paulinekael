@@ -4,15 +4,19 @@
 
 Kael is my movie recommender. Rate films you’ve seen to get suggestions that learn from your taste. Find something for tonight, keep a watchlist and record what you watch. Your ratings and lists stay on your device, with backups for moving to another browser or phone.
 
-<img src="docs/screenshots/overview.jpg" alt="Kael’s poster wall for choosing and rating films you have seen" width="100%">
+<img src="docs/screenshots/redesign-desktop.jpg" alt="Kael’s personal film recommendations, with film art and the reason behind each pick" width="100%">
 
 ## Start finding a film
 
 1. Choose **Rate** and answer for films you’ve seen; skip the ones you haven’t.
-2. Open **Home** for your picks, or **Tonight** for suggestions that fit your evening.
+2. Open **For you** for your picks, or **Tonight** for suggestions that fit your evening.
 3. Save films to your watchlist, or log a viewing in your diary.
 
 Named after Pauline Kael (1919–2001), the film critic. The source is on `main` and the published app is on `site`.
+
+The product context and durable design rules are in [PRODUCT.md](PRODUCT.md) and
+[DESIGN.md](DESIGN.md). See [the redesign verification record](docs/REDESIGN.md) for
+preview instructions, exercised workflows, and remaining browser checks.
 
 ## Behind the recommendations
 
@@ -28,10 +32,10 @@ Wikidata every week.
 
 ## The app
 
-`web/` is a phone web app (installable from Safari: Share → Add to Home Screen)
+`web/` is a responsive desktop and phone web app (installable from Safari: Share → Add to Home Screen)
 with five tabs:
 
-- **Home**: your top pick, then shelves: top picks, "Because you loved…", new
+- **For you**: your top pick, then shelves: top picks, "Because you loved…", new
   releases, what's on your services, favourite genres, hidden gems, films for you and
   a friend, and more. **Tonight** asks your mood, how long you've got and who's
   watching, and gives three picks.
@@ -57,7 +61,7 @@ with five tabs:
   ones you'd enjoy), and Share, whose link (`#f=<IMDb id>`) opens the film in the
   app. Summaries, cast and backdrops come from TMDB with the streaming data and load
   per film from `data/about/` (256 small files); directors from `data/directors.json`.
-- **You**: your taste scales; **your film life** (genres you watch most, films by
+- **Your taste**: your taste scales; **your film life** (genres you watch most, films by
   decade with your best decade highlighted, directors you keep coming back to, films
   you loved); a shareable **taste card** image; watch together.
   **Settings** (the gear): streaming services; **import** from a Letterboxd export
@@ -97,9 +101,8 @@ works when the app is already open.
 **Accessibility.** The film page and sheets move focus into themselves, make the screen
 behind them inert, close on Escape and return focus. Result titles and the Rate card are
 reachable by keyboard, inputs have names, and animations stop under "reduce motion".
-Pinch zoom is switched off on purpose (`touch-action` in `app.css`, `user-scalable=no`):
-it knocks the full-screen cards out of place, but it also means people who rely on
-zooming can't.
+Browser zoom is supported. Dialogs contain keyboard focus, Library tabs support arrow
+keys, and diary dates reject invalid or future viewings with a visible explanation.
 
 **Browser security.** The page's Content-Security-Policy limits scripts to this
 site, images to this site and TMDB, and trailers to YouTube's privacy-friendly

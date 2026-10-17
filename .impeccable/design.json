@@ -1,0 +1,501 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-17T23:40:30.977324+00:00",
+  "title": "Design System: Kael",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Cool reading ground",
+        "tonalRamp": [
+          "oklch(15% 0.0051 228.82)",
+          "oklch(27% 0.0051 228.82)",
+          "oklch(38% 0.0051 228.82)",
+          "oklch(50% 0.0051 228.82)",
+          "oklch(61% 0.0051 228.82)",
+          "oklch(73% 0.0051 228.82)",
+          "oklch(84% 0.0051 228.82)",
+          "oklch(95% 0.0051 228.82)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Light field",
+        "tonalRamp": [
+          "oklch(15% 0.0017 247.84)",
+          "oklch(27% 0.0017 247.84)",
+          "oklch(38% 0.0017 247.84)",
+          "oklch(50% 0.0017 247.84)",
+          "oklch(61% 0.0017 247.84)",
+          "oklch(73% 0.0017 247.84)",
+          "oklch(84% 0.0017 247.84)",
+          "oklch(95% 0.0017 247.84)"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Tonal field",
+        "tonalRamp": [
+          "oklch(15% 0.0094 242.84)",
+          "oklch(27% 0.0094 242.84)",
+          "oklch(38% 0.0094 242.84)",
+          "oklch(50% 0.0094 242.84)",
+          "oklch(61% 0.0094 242.84)",
+          "oklch(73% 0.0094 242.84)",
+          "oklch(84% 0.0094 242.84)",
+          "oklch(95% 0.0094 242.84)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Reading ink",
+        "tonalRamp": [
+          "oklch(15% 0.0501 245.12)",
+          "oklch(27% 0.0501 245.12)",
+          "oklch(38% 0.0501 245.12)",
+          "oklch(50% 0.0501 245.12)",
+          "oklch(61% 0.0501 245.12)",
+          "oklch(73% 0.0501 245.12)",
+          "oklch(84% 0.0501 245.12)",
+          "oklch(95% 0.0501 245.12)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Secondary ink",
+        "tonalRamp": [
+          "oklch(15% 0.0333 242.15)",
+          "oklch(27% 0.0333 242.15)",
+          "oklch(38% 0.0333 242.15)",
+          "oklch(50% 0.0333 242.15)",
+          "oklch(61% 0.0333 242.15)",
+          "oklch(73% 0.0333 242.15)",
+          "oklch(84% 0.0333 242.15)",
+          "oklch(95% 0.0333 242.15)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Quiet rule",
+        "tonalRamp": [
+          "oklch(15% 0.0145 238.03)",
+          "oklch(27% 0.0145 238.03)",
+          "oklch(38% 0.0145 238.03)",
+          "oklch(50% 0.0145 238.03)",
+          "oklch(61% 0.0145 238.03)",
+          "oklch(73% 0.0145 238.03)",
+          "oklch(84% 0.0145 238.03)",
+          "oklch(95% 0.0145 238.03)"
+        ]
+      },
+      "line-2": {
+        "role": "neutral",
+        "displayName": "Control rule",
+        "tonalRamp": [
+          "oklch(15% 0.0272 239.18)",
+          "oklch(27% 0.0272 239.18)",
+          "oklch(38% 0.0272 239.18)",
+          "oklch(50% 0.0272 239.18)",
+          "oklch(61% 0.0272 239.18)",
+          "oklch(73% 0.0272 239.18)",
+          "oklch(84% 0.0272 239.18)",
+          "oklch(95% 0.0272 239.18)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Title gold",
+        "tonalRamp": [
+          "oklch(15% 0.1301 89.91)",
+          "oklch(27% 0.1301 89.91)",
+          "oklch(38% 0.1301 89.91)",
+          "oklch(50% 0.1301 89.91)",
+          "oklch(61% 0.1301 89.91)",
+          "oklch(73% 0.1301 89.91)",
+          "oklch(84% 0.1301 89.91)",
+          "oklch(95% 0.1301 89.91)"
+        ]
+      },
+      "accent-2": {
+        "role": "primary",
+        "displayName": "Pale title gold",
+        "tonalRamp": [
+          "oklch(15% 0.1093 91.78)",
+          "oklch(27% 0.1093 91.78)",
+          "oklch(38% 0.1093 91.78)",
+          "oklch(50% 0.1093 91.78)",
+          "oklch(61% 0.1093 91.78)",
+          "oklch(73% 0.1093 91.78)",
+          "oklch(84% 0.1093 91.78)",
+          "oklch(95% 0.1093 91.78)"
+        ]
+      },
+      "ink": {
+        "role": "secondary",
+        "displayName": "Cinema ink",
+        "tonalRamp": [
+          "oklch(15% 0.0543 246.13)",
+          "oklch(27% 0.0543 246.13)",
+          "oklch(38% 0.0543 246.13)",
+          "oklch(50% 0.0543 246.13)",
+          "oklch(61% 0.0543 246.13)",
+          "oklch(73% 0.0543 246.13)",
+          "oklch(84% 0.0543 246.13)",
+          "oklch(95% 0.0543 246.13)"
+        ]
+      },
+      "ink-soft": {
+        "role": "secondary",
+        "displayName": "Soft cinema ink",
+        "tonalRamp": [
+          "oklch(15% 0.0606 244.09)",
+          "oklch(27% 0.0606 244.09)",
+          "oklch(38% 0.0606 244.09)",
+          "oklch(50% 0.0606 244.09)",
+          "oklch(61% 0.0606 244.09)",
+          "oklch(73% 0.0606 244.09)",
+          "oklch(84% 0.0606 244.09)",
+          "oklch(95% 0.0606 244.09)"
+        ]
+      },
+      "love": {
+        "role": "tertiary",
+        "displayName": "Loved",
+        "tonalRamp": [
+          "oklch(15% 0.1308 4.07)",
+          "oklch(27% 0.1308 4.07)",
+          "oklch(38% 0.1308 4.07)",
+          "oklch(50% 0.1308 4.07)",
+          "oklch(61% 0.1308 4.07)",
+          "oklch(73% 0.1308 4.07)",
+          "oklch(84% 0.1308 4.07)",
+          "oklch(95% 0.1308 4.07)"
+        ]
+      },
+      "like": {
+        "role": "tertiary",
+        "displayName": "Liked",
+        "tonalRamp": [
+          "oklch(15% 0.0931 160.60)",
+          "oklch(27% 0.0931 160.60)",
+          "oklch(38% 0.0931 160.60)",
+          "oklch(50% 0.0931 160.60)",
+          "oklch(61% 0.0931 160.60)",
+          "oklch(73% 0.0931 160.60)",
+          "oklch(84% 0.0931 160.60)",
+          "oklch(95% 0.0931 160.60)"
+        ]
+      },
+      "meh": {
+        "role": "tertiary",
+        "displayName": "Neutral opinion",
+        "tonalRamp": [
+          "oklch(15% 0.0322 243.56)",
+          "oklch(27% 0.0322 243.56)",
+          "oklch(38% 0.0322 243.56)",
+          "oklch(50% 0.0322 243.56)",
+          "oklch(61% 0.0322 243.56)",
+          "oklch(73% 0.0322 243.56)",
+          "oklch(84% 0.0322 243.56)",
+          "oklch(95% 0.0322 243.56)"
+        ]
+      },
+      "nope": {
+        "role": "tertiary",
+        "displayName": "Disliked and error",
+        "tonalRamp": [
+          "oklch(15% 0.1358 28.89)",
+          "oklch(27% 0.1358 28.89)",
+          "oklch(38% 0.1358 28.89)",
+          "oklch(50% 0.1358 28.89)",
+          "oklch(61% 0.1358 28.89)",
+          "oklch(73% 0.1358 28.89)",
+          "oklch(84% 0.1358 28.89)",
+          "oklch(95% 0.1358 28.89)"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "White",
+        "tonalRamp": [
+          "oklch(15% 0.0000 89.88)",
+          "oklch(27% 0.0000 89.88)",
+          "oklch(38% 0.0000 89.88)",
+          "oklch(50% 0.0000 89.88)",
+          "oklch(61% 0.0000 89.88)",
+          "oklch(73% 0.0000 89.88)",
+          "oklch(84% 0.0000 89.88)",
+          "oklch(95% 0.0000 89.88)"
+        ]
+      },
+      "focus": {
+        "role": "tertiary",
+        "displayName": "Focus blue",
+        "tonalRamp": [
+          "oklch(15% 0.1097 244.70)",
+          "oklch(27% 0.1097 244.70)",
+          "oklch(38% 0.1097 244.70)",
+          "oklch(50% 0.1097 244.70)",
+          "oklch(61% 0.1097 244.70)",
+          "oklch(73% 0.1097 244.70)",
+          "oklch(84% 0.1097 244.70)",
+          "oklch(95% 0.1097 244.70)"
+        ]
+      },
+      "primary-hover": {
+        "role": "secondary",
+        "displayName": "Lifted ink",
+        "tonalRamp": [
+          "oklch(15% 0.0678 241.34)",
+          "oklch(27% 0.0678 241.34)",
+          "oklch(38% 0.0678 241.34)",
+          "oklch(50% 0.0678 241.34)",
+          "oklch(61% 0.0678 241.34)",
+          "oklch(73% 0.0678 241.34)",
+          "oklch(84% 0.0678 241.34)",
+          "oklch(95% 0.0678 241.34)"
+        ]
+      },
+      "nav-muted": {
+        "role": "neutral",
+        "displayName": "Muted navigation",
+        "tonalRamp": [
+          "oklch(15% 0.0268 239.14)",
+          "oklch(27% 0.0268 239.14)",
+          "oklch(38% 0.0268 239.14)",
+          "oklch(50% 0.0268 239.14)",
+          "oklch(61% 0.0268 239.14)",
+          "oklch(73% 0.0268 239.14)",
+          "oklch(84% 0.0268 239.14)",
+          "oklch(95% 0.0268 239.14)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Welcome heading; mobile size is 39px."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page headings; mobile size is 32px."
+      },
+      "film-title": {
+        "displayName": "Film Title",
+        "purpose": "Featured film title; 31px tablet and 26px mobile."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Shelf and panel headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default reading text; long overviews add 1.8 line-height."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Primary and secondary button text."
+      },
+      "metadata": {
+        "displayName": "Metadata",
+        "purpose": "Supporting film and personal-history information."
+      },
+      "badge": {
+        "displayName": "Badge",
+        "purpose": "Compact status badge, uppercase."
+      }
+    },
+    "shadows": [
+      {
+        "name": "rating-poster",
+        "value": "0 12px 28px #00000020",
+        "purpose": "Depth behind the active rating poster."
+      },
+      {
+        "name": "detail-poster",
+        "value": "0 9px 24px #00000020",
+        "purpose": "Poster overlapping the film still."
+      },
+      {
+        "name": "dialog",
+        "value": "0 18px 60px #00000044",
+        "purpose": "Protected sheet above the dimmed app."
+      },
+      {
+        "name": "toast",
+        "value": "0 8px 28px #00000030",
+        "purpose": "Transient action feedback."
+      }
+    ],
+    "motion": [
+      {
+        "name": "button-state",
+        "value": "background .16s, color .16s, opacity .16s",
+        "purpose": "Default button transitions using CSS ease."
+      },
+      {
+        "name": "poster-dissolve",
+        "value": "opacity .18s",
+        "purpose": "Image arrival and outgoing rating card."
+      },
+      {
+        "name": "reveal",
+        "value": "opacity .2s",
+        "purpose": "Film-still reveal and loading dismissal."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation: none !important; transition: none !important; scroll-behavior: auto !important",
+        "purpose": "Applies to all elements and pseudo-elements when prefers-reduced-motion is reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "tablet",
+        "value": "(max-width: 1100px) and (min-width: 761px)"
+      },
+      {
+        "name": "mobile",
+        "value": "(max-width: 760px)"
+      },
+      {
+        "name": "compact-mobile",
+        "value": "(max-width: 359px)"
+      },
+      {
+        "name": "short-desktop",
+        "value": "(max-height: 720px) and (min-width: 761px)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action on a pale working surface.",
+      "html": "<button class=\"ds-button-primary\">Save to watchlist</button>",
+      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 16px;border-radius:5px;font:600 14px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:background .16s,color .16s,opacity .16s;background:var(--ink,#102c43);color:#fff;border:0}.ds-button-primary:hover{background:#234d6a}.ds-button-primary:focus-visible{outline:3px solid #337ab0;outline-offset:4px;border-radius:3px;}.ds-button-primary:active:not(:disabled){opacity:.78}.ds-button-primary:disabled{opacity:.45;cursor:not-allowed} @media(prefers-reduced-motion:reduce){.ds-button-primary{transition:none!important;animation:none!important;scroll-behavior:auto!important}}"
+    },
+    {
+      "name": "Gold button",
+      "kind": "button",
+      "refersTo": "button-accent",
+      "description": "Primary action inside a dark title frame.",
+      "html": "<button class=\"ds-button-accent\">Save to watchlist</button>",
+      "css": ".ds-button-accent{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 16px;border-radius:5px;font:600 14px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:background .16s,color .16s,opacity .16s;background:var(--accent,#eac55c);color:var(--ink,#102c43);border:0}.ds-button-accent:hover{background:var(--accent-2,#f4d883)}.ds-button-accent:focus-visible{outline:3px solid #337ab0;outline-offset:4px;border-radius:3px;}.ds-button-accent:active:not(:disabled){opacity:.78}.ds-button-accent:disabled{opacity:.45;cursor:not-allowed} @media(prefers-reduced-motion:reduce){.ds-button-accent{transition:none!important;animation:none!important;scroll-behavior:auto!important}}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary action with a quiet border.",
+      "html": "<button class=\"ds-button-secondary\">Save to watchlist</button>",
+      "css": ".ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 16px;border-radius:5px;font:600 14px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:background .16s,color .16s,opacity .16s;background:transparent;color:var(--text,#142e43);border:1px solid var(--line-2,#a8bac7)}.ds-button-secondary:hover{background:var(--surface-2,#e2e8ed)}.ds-button-secondary:focus-visible{outline:3px solid #337ab0;outline-offset:4px;border-radius:3px;}.ds-button-secondary:active:not(:disabled){opacity:.78}.ds-button-secondary:disabled{opacity:.45;cursor:not-allowed} @media(prefers-reduced-motion:reduce){.ds-button-secondary{transition:none!important;animation:none!important;scroll-behavior:auto!important}}"
+    },
+    {
+      "name": "Search field",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "Film search with an explicit accessible name.",
+      "html": "<input class=\"ds-search\" type=\"search\" aria-label=\"Search films\" placeholder=\"Search for a film, like Heat or Amélie\">",
+      "css": ".ds-search{width:100%;min-height:56px;padding:15px 18px;background:var(--surface,#f9fafb);color:var(--text,#142e43);border:1px solid var(--line-2,#a8bac7);border-radius:5px;font:16px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;appearance:none;caret-color:var(--ink,#102c43)}.ds-search::placeholder{color:var(--muted,#526574);opacity:1}.ds-search:focus-visible{outline:3px solid #337ab0;outline-offset:4px;border-radius:3px;} @media(prefers-reduced-motion:reduce){.ds-search{transition:none!important;animation:none!important;scroll-behavior:auto!important}}"
+    },
+    {
+      "name": "Filter option",
+      "kind": "chip",
+      "refersTo": "option",
+      "description": "A filter shows selection through ink fill and aria-pressed.",
+      "html": "<button class=\"ds-option\" aria-pressed=\"true\">Under 2 hours</button>",
+      "css": ".ds-option{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 15px;border:1px solid var(--line-2,#a8bac7);border-radius:5px;background:transparent;color:var(--text,#142e43);font:13px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:background .16s,color .16s,opacity .16s}.ds-option:hover{background:var(--surface-2,#e2e8ed)}.ds-option[aria-pressed=\"true\"]{background:var(--ink,#102c43);color:#fff;border-color:var(--ink,#102c43)}.ds-option:focus-visible{outline:3px solid #337ab0;outline-offset:4px;border-radius:3px;}.ds-option:active{opacity:.78} @media(prefers-reduced-motion:reduce){.ds-option{transition:none!important;animation:none!important;scroll-behavior:auto!important}}"
+    },
+    {
+      "name": "Main navigation",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Five destinations: horizontal in the masthead, equal bottom destinations on mobile.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Main\"><button class=\"ds-nav-button\" aria-current=\"page\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15v-6h-6v6H5.5A1.5 1.5 0 0 1 4 19z\"/></svg><span>For you</span></button><button class=\"ds-nav-button\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z\"/></svg><span>Rate</span></button><button class=\"ds-nav-button\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"10.5\" cy=\"10.5\" r=\"6.5\"/><path d=\"M15.5 15.5 20 20\"/></svg><span>Search</span></button><button class=\"ds-nav-button\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M6.5 3.5h11v17L12 16.5l-5.5 4z\"/></svg><span>Library</span></button><button class=\"ds-nav-button\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8.5\" r=\"4\"/><path d=\"M4.5 20c1.2-3.6 4.1-5.5 7.5-5.5s6.3 1.9 7.5 5.5\"/></svg><span>Your taste</span></button></nav>",
+      "css": ".ds-nav{display:flex;align-items:stretch;gap:16px;height:88px;background:var(--ink,#102c43);color:#b9cbd8}.ds-nav-button{position:relative;display:flex;align-items:center;gap:8px;padding:0 12px;white-space:nowrap;color:inherit;border:0;background:transparent;font:550 14px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:color .16s,opacity .16s}.ds-nav-icon{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.ds-nav-button[aria-current=\"page\"],.ds-nav-button:hover{color:#fff}.ds-nav-button[aria-current=\"page\"]::after{content:\"\";position:absolute;bottom:19px;left:12px;right:12px;height:2px;background:var(--accent,#eac55c)}.ds-nav-button:focus-visible{outline:3px solid #337ab0;outline-offset:4px;border-radius:3px;}.ds-nav-button:active{opacity:.78}@media(max-width:760px){.ds-nav{display:grid;grid-template-columns:repeat(5,1fr);height:65px;padding:5px 6px;gap:0}.ds-nav-button{padding:6px 0;flex-direction:column;justify-content:center;gap:4px;font-size:11px}.ds-nav-icon{width:20px;height:20px}.ds-nav-button[aria-current=\"page\"]{color:var(--accent-2,#f4d883)}.ds-nav-button[aria-current=\"page\"]::after{bottom:0;left:24px;right:24px}} @media(prefers-reduced-motion:reduce){.ds-nav,.ds-nav-button,.ds-nav-icon{transition:none!important;animation:none!important;scroll-behavior:auto!important}}"
+    },
+    {
+      "name": "Film title frame",
+      "kind": "card",
+      "refersTo": "title-frame",
+      "description": "The actual missing-art state demonstrates the frame without fabricating art or personal predictions.",
+      "html": "<article class=\"ds-frame\"><button class=\"ds-frame-art\" aria-label=\"Open film\"><span class=\"ds-frame-fallback\">Artwork unavailable</span></button><div class=\"ds-frame-info\"><h2 class=\"ds-frame-title\"><button class=\"ds-frame-open\">A film for you</button></h2><p class=\"ds-frame-meta\">Film metadata</p><p class=\"ds-frame-reason\">Your recommendation explanation appears here.</p><button class=\"ds-frame-save\">Save to watchlist</button></div></article>",
+      "css": ".ds-frame{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:390px;overflow:hidden;border-radius:4px;background:var(--ink,#102c43);color:#fff;font:16px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}.ds-frame-art{align-self:start;border:0;padding:0;aspect-ratio:2/3;background:var(--ink-soft,#193b55);color:var(--muted,#526574);cursor:pointer}.ds-frame-fallback{color:#c3d3de;display:grid;place-items:center;width:100%;height:100%;font:11px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}.ds-frame-info{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:28px}.ds-frame-title{font:550 34px/1.06 var(--display,Georgia,serif);letter-spacing:-.025em;margin:0}.ds-frame-open{text-align:left;border:0;padding:0;background:transparent;color:inherit;font:inherit;cursor:pointer}.ds-frame-meta{font-size:12px;line-height:1.7;color:#b9cedd;margin:14px 0 18px}.ds-frame-reason{margin:0;padding:17px 0 0;border-top:1px solid #3d586c;color:#c3d3de;font-size:13px;line-height:1.7}.ds-frame-save{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 16px;border-radius:5px;font:600 14px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:background .16s,color .16s,opacity .16s;margin-top:22px;border:0;background:var(--accent,#eac55c);color:var(--ink,#102c43)}.ds-frame-save:hover{background:var(--accent-2,#f4d883)}.ds-frame-art:focus-visible,.ds-frame-open:focus-visible,.ds-frame-save:focus-visible{outline:3px solid #337ab0;outline-offset:4px;border-radius:3px;}.ds-frame-art:active,.ds-frame-open:active,.ds-frame-save:active{opacity:.78}@media(max-width:760px){.ds-frame{grid-template-columns:110px minmax(0,1fr);gap:10px 16px;padding:18px;min-height:0}.ds-frame-art{grid-column:1;grid-row:1/3}.ds-frame-info{display:contents}.ds-frame-title{grid-column:2;grid-row:1;font-size:26px;align-self:end}.ds-frame-meta{grid-column:2;grid-row:2;font-size:11px;margin:0}.ds-frame-reason{grid-column:1/-1;font-size:12px;padding-top:14px}.ds-frame-save{grid-column:1/-1;justify-self:start;margin-top:5px}} @media(prefers-reduced-motion:reduce){.ds-frame,.ds-frame-art,.ds-frame-fallback,.ds-frame-info,.ds-frame-meta,.ds-frame-open,.ds-frame-reason,.ds-frame-save,.ds-frame-title{transition:none!important;animation:none!important;scroll-behavior:auto!important}}"
+    },
+    {
+      "name": "Poster tile",
+      "kind": "card",
+      "refersTo": "poster-tile",
+      "description": "Real film art uses a 2:3 frame; this self-contained preview shows its missing-art state.",
+      "html": "<button class=\"ds-poster-tile\"><span class=\"ds-poster-fallback\">Artwork unavailable</span><span class=\"ds-poster-title\">Film title</span><span class=\"ds-poster-meta\">Year · Runtime</span></button>",
+      "css": ".ds-poster-tile{width:160px;padding:0;border:0;background:transparent;text-align:left;color:var(--text,#142e43);font:16px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:opacity .16s}.ds-poster-fallback{display:grid;place-items:center;aspect-ratio:2/3;width:100%;padding:8px;border-radius:3px;background:var(--surface-2,#e2e8ed);color:var(--muted,#526574);font-size:11px;text-align:center}.ds-poster-title{display:block;margin-top:11px;font-size:14px;line-height:1.35;font-weight:600}.ds-poster-meta{display:block;margin-top:3px;font-size:12px;color:var(--muted,#526574)}.ds-poster-tile:hover .ds-poster-title{text-decoration:underline;text-underline-offset:4px}.ds-poster-tile:focus-visible{outline:3px solid #337ab0;outline-offset:4px;border-radius:3px;}.ds-poster-tile:active{opacity:.78}@media(max-width:760px){.ds-poster-tile{width:132px}.ds-poster-title{font-size:13px}.ds-poster-meta{font-size:11px}} @media(prefers-reduced-motion:reduce){.ds-poster-fallback,.ds-poster-meta,.ds-poster-tile,.ds-poster-title{transition:none!important;animation:none!important;scroll-behavior:auto!important}}"
+    },
+    {
+      "name": "Rating action row",
+      "kind": "button",
+      "refersTo": "rating-control",
+      "description": "Six original actions retain visible labels, distinct SVG icons, opinion colors, and their responsive grid.",
+      "html": "<div class=\"ds-rating-row\"><button class=\"ds-rating\"><svg class=\"ds-rating-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 5v14M6 13l6 6 6-6\"/></svg><span>Not seen</span></button><button class=\"ds-rating\"><svg class=\"ds-rating-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\" style=\"color:#8a6818\"><path d=\"M6.5 3.5h11v17L12 16.5l-5.5 4z\"/></svg><span>Save</span></button><button class=\"ds-rating\"><svg class=\"ds-rating-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\" style=\"color:var(--nope,#a64136)\"><path d=\"M6 6l12 12M18 6 6 18\"/></svg><span>Nope</span></button><button class=\"ds-rating\"><svg class=\"ds-rating-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\" style=\"color:var(--meh,#586a79)\"><path d=\"M6 12h12\"/></svg><span>OK</span></button><button class=\"ds-rating\"><svg class=\"ds-rating-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\" style=\"color:var(--like,#24714f)\"><path d=\"M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7.2 4.5 4.5 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z\"/></svg><span>Liked</span></button><button class=\"ds-rating\"><svg class=\"ds-rating-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\" style=\"color:var(--love,#a54461)\"><path d=\"M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z\"/></svg><span>Loved</span></button></div>",
+      "css": ".ds-rating-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}.ds-rating{display:flex;flex-direction:column;align-items:center;gap:8px;min-height:70px;padding:8px 1px;border:1px solid var(--line,#d2dce3);border-radius:5px;background:var(--surface,#f9fafb);color:var(--text,#142e43);font:11px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:background .16s,color .16s,opacity .16s}.ds-rating-icon{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.ds-rating:hover{background:var(--surface-2,#e2e8ed);border-color:var(--line-2,#a8bac7)}.ds-rating:focus-visible{outline:3px solid #337ab0;outline-offset:4px;border-radius:3px;}.ds-rating:active{opacity:.78}@media(max-width:760px){.ds-rating{min-height:63px;gap:7px}.ds-rating-icon{width:22px;height:22px}} @media(prefers-reduced-motion:reduce){.ds-rating,.ds-rating-icon{transition:none!important;animation:none!important;scroll-behavior:auto!important}}@media(max-width:760px){.ds-rating-row{gap:5px}}"
+    },
+    {
+      "name": "Protected dialog",
+      "kind": "custom",
+      "refersTo": "dialog",
+      "description": "Solid sheet surface and close control; runtime focus trapping belongs to the app.",
+      "html": "<section class=\"ds-dialog\" role=\"dialog\" aria-label=\"Rate this film\"><button class=\"ds-dialog-close\" aria-label=\"Close\"><svg class=\"ds-dialog-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M6 6l12 12M18 6 6 18\"/></svg></button><h3 class=\"ds-dialog-title\">Rate this film</h3><p class=\"ds-dialog-sub\">Your opinion helps shape your next picks.</p></section>",
+      "css": ".ds-dialog{position:relative;width:100%;max-width:590px;max-height:90dvh;overflow-y:auto;background:var(--bg,#edf1f3);color:var(--text,#142e43);padding:30px;border-radius:12px;box-shadow:0 18px 60px #00000044;font:16px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}.ds-dialog-title{font:550 30px/1.2 var(--display,Georgia,serif);letter-spacing:-.02em;margin:0 40px 12px 0}.ds-dialog-sub{font-size:14px;color:var(--muted,#526574);margin:0 0 22px}.ds-dialog-close{position:absolute;right:13px;top:13px;width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:var(--muted,#526574);cursor:pointer;transition:background .16s,opacity .16s}.ds-dialog-icon{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}.ds-dialog-close:hover{background:var(--surface-2,#e2e8ed)}.ds-dialog-close:focus-visible{outline:3px solid #337ab0;outline-offset:4px;border-radius:3px;}.ds-dialog-close:active{opacity:.78}@media(max-width:760px){.ds-dialog{max-height:92dvh;padding:27px 20px calc(22px + env(safe-area-inset-bottom));border-radius:12px 12px 0 0}.ds-dialog-title{font-size:28px}.ds-dialog-sub{font-size:13px}} @media(prefers-reduced-motion:reduce){.ds-dialog,.ds-dialog-close,.ds-dialog-icon,.ds-dialog-sub,.ds-dialog-title{transition:none!important;animation:none!important;scroll-behavior:auto!important}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Title sequence",
+    "overview": "Kael takes its visual character from a film title sequence: ink blue frames, a single gold emphasis, expressive film titles, and real film artwork. Cool pale working surfaces give ratings, metadata, search, and personal history room to remain legible. The identity belongs to the films and the viewer’s relationship to them.\n\nFraunces is the existing locally hosted display family, deliberately retained with its SIL Open Font License. System sans-serif handles controls and factual detail. Recommendations pair a film with the actual explanation produced from the viewer’s ratings; visual framing must never imply a fabricated critic’s verdict.",
+    "keyCharacteristics": [
+      "Real film art and serif titles carry the identity.",
+      "Ink blue frames and gold actions provide hierarchy.",
+      "Open sections, thin rules, and compact metadata support repeated work.",
+      "Touch, keyboard, and reduced-motion behavior are part of the component contract."
+    ],
+    "rules": [
+      {
+        "name": "The Film and Reason Rule",
+        "body": "Present the film title, artwork, and model-derived reason as related information. Preserve readable titles while artwork loads or is unavailable.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gold Emphasis Rule",
+        "body": "Use gold for the primary action on an ink surface, the active navigation marker, match emphasis, and selected artwork markers. Keep ordinary working-surface buttons ink blue.",
+        "section": "colors"
+      },
+      {
+        "name": "The Title and Task Rule",
+        "body": "Use Fraunces for film titles and editorial headings; use the system sans-serif for controls, dates, counts, and supporting metadata. Keep the locally hosted font and its license together.",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Surface Rule",
+        "body": "Use tonal separation and thin rules for ordinary sections. Reserve shadows for floating feedback, protected dialogs, and selected poster presentations.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do pair real film artwork with readable titles and actual recommendation explanations.",
+      "Do reuse the ink, accent, surface, and status tokens rather than introduce a new decorative palette.",
+      "Do preserve 2:3 poster frames in shelves, grids, and the featured recommendation; apply the explicit mobile rating exception only in the rating stage.",
+      "Do retain visible keyboard focus, semantic selected states, protected dialog focus, and reduced-motion behavior.",
+      "Do make new standalone controls at least 44px high and icon controls at least 44px by 44px.",
+      "Do use open sections and rules for settings and personal history."
+    ],
+    "donts": [
+      "Don’t invent reviews, critic endorsements, user statistics, or model explanations to fill the layout.",
+      "Don’t replace the locally hosted Fraunces title face with a system display face.",
+      "Don’t turn every section into a rounded, shadowed card.",
+      "Don’t remove visible text labels or rely on rating color alone.",
+      "Don’t infer a universal ban on gradients: the mobile rating caption and film-detail still use protective image shading.",
+      "Don’t propagate documented target-size exceptions as new component defaults."
+    ]
+  }
+}

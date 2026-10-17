@@ -5,3 +5,8 @@ site/
 results/*.parquet
 .DS_Store
 logs/
+
+# Local preview data and design review working files
+web/data
+.impeccable/review/
+.impeccable/questions/
