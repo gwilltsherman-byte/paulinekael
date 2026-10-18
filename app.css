@@ -61,8 +61,10 @@ button:active:not(:disabled) { opacity: .78; }
 h1,h2,h3 { text-wrap: balance; }
 #backdrop { display: none; }
 .masthead { position: fixed; inset: 0 0 auto; height: var(--masthead); z-index: 12; display: flex; align-items: center; gap: 24px; padding: 0 var(--gutter); background: var(--ink); color: #f7f6ee; }
-.brand { font: 650 44px/1 var(--display); letter-spacing: -.04em; padding: 2px 4px 8px 0; }
-.brand span { color: var(--accent); }
+.brand { display: flex; align-items: center; min-height: 44px; flex: none; }
+.brand img { display: block; width: 118px; height: auto; }
+.brand:hover { opacity: .8; }
+.brand:focus-visible { outline-color: var(--accent); }
 .brand-note { font-size: 12px; line-height: 1.35; width: 100px; color: #bdccd6; border-left: 1px solid #496174; padding-left: 20px; }
 .masthead-settings { margin-left: auto; width: 44px; height: 44px; display: grid; place-items: center; color: #dce6ed; }
 .masthead-settings svg { width: 22px; height: 22px; }
@@ -445,8 +447,8 @@ details p { font-size: 13px; color: var(--muted); max-width: 70ch; }
 .toast button { color: var(--accent); min-height: 44px; font-weight: 600; }
 .loading { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--ink); color: #fff; padding: 28px; transition: opacity .2s; }
 .loading.out { opacity: 0; pointer-events: none; }
-.loading-word { font: 550 66px/1 var(--display); letter-spacing: -.04em; margin: 0; }
-.loading-word span { color: var(--accent); }
+.loading-word { margin: 0; line-height: 0; }
+.loading-word img { display: block; width: 216px; height: auto; max-width: 100%; }
 .loading .tagline { color: #c1d2de; margin-top: 16px; font-size: 20px; }
 .loading-status { max-width: 45ch; color: #c1d2de; font-size: 13px; text-align: center; margin-top: 30px; }
 .loading .pill-btn { color: #fff; margin-top: 20px; border-color: #7890a2; }
@@ -455,7 +457,7 @@ details p { font-size: 13px; color: var(--muted); max-width: 70ch; }
 .leader svg { width: 100%; height: 100%; }
 .lr-track { stroke: #3c5b71; stroke-width: 10px; }
 .lr-fill { stroke: var(--accent); stroke-width: 10px; stroke-dasharray: 100; stroke-dashoffset: 100; }
-.lr-inner,.lr-cross,.leader-k,.leader-sweep { display: none; }
+.lr-inner,.lr-cross,.leader-sweep { display: none; }
 @media (max-width: 1100px) and (min-width: 761px) {
   .brand-note { display: none; }
   .tabbar { gap: 6px; }
@@ -475,7 +477,7 @@ details p { font-size: 13px; color: var(--muted); max-width: 70ch; }
 @media (max-width: 760px) {
   :root { --masthead: calc(64px + env(safe-area-inset-top)); --tabbar: calc(65px + env(safe-area-inset-bottom)); --gutter: 20px; --top: 62px; }
   .masthead { padding-top: env(safe-area-inset-top); gap: 17px; }
-  .brand { font-size: 37px; }
+  .brand img { width: 100px; }
   .brand-note { font-size: 11px; width: 130px; padding-left: 15px; }
   .tabbar { top: auto; bottom: 0; left: 0; right: 0; height: var(--tabbar); background: var(--ink); padding: 5px 6px env(safe-area-inset-bottom); gap: 0; display: grid; grid-template-columns: repeat(5,1fr); }
   .tabbar button { padding: 6px 0; flex-direction: column; gap: 4px; justify-content: center; font-size: 11px; }

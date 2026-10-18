@@ -2,6 +2,7 @@ import { buildOf, loadEngine, loadMeta, loadQuick, loadRest, phi, Session } from
 import { readImport } from "./importer.js";
 import { Titles } from "./search.js";
 import { decodeTaste, parseTasteLink, tasteLink } from "./share.js";
+import { BRAND, drawWordmark } from "./brand.js";
 
 const $ = (id) => document.getElementById(id);
 const K = {
@@ -1680,14 +1681,10 @@ async function drawTasteCard(withPosters) {
   await Promise.all(['700 80px "Fraunces"', '600 40px "Fraunces"'].map((f) => document.fonts.load(f).catch(() => {})));
   const serif = (w, px) => `${w} ${px}px Fraunces, Georgia, serif`;
   const sans = (w, px) => `${w} ${px}px -apple-system, "SF Pro Text", system-ui, sans-serif`;
-  g.fillStyle = "#07060a"; g.fillRect(0, 0, W, H);
-  const glow = (x, y, r, col) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, col); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(0, 0, W, H); };
-  glow(220, 160, 900, "rgba(255,160,60,.30)");
-  glow(1000, 1300, 800, "rgba(110,60,160,.28)");
+  g.fillStyle = BRAND.ink; g.fillRect(0, 0, W, H);
   const X = 84;
-  g.fillStyle = "#f7f4ee"; g.font = serif(750, 60); g.fillText("Kael", X, 128);
-  g.fillStyle = "#ffb547"; g.fillText(".", X + g.measureText("Kael").width, 128);
-  g.fillStyle = "#f7f4ee"; g.font = serif(700, 76);
+  drawWordmark(g, X, 76, 250);
+  g.fillStyle = BRAND.paper; g.font = serif(700, 76);
   const head = prefs.name ? `${prefs.name}'s taste in film` : "My taste in film";
   const words = head.split(" "); let line = "", y = 250;
   for (const w of words) {
@@ -1701,25 +1698,25 @@ async function drawTasteCard(withPosters) {
   imgs.forEach((im, k) => {   // only the posters that downloaded
     const px = X + k * (PW + GAP);
     g.save();
-    g.beginPath(); g.roundRect(px, PY, PW, PH, 18); g.clip();
+    g.beginPath(); g.roundRect(px, PY, PW, PH, 6); g.clip();
     g.drawImage(im, px, PY, PW, PH);
     g.restore();
   });
   let ty = PY + (imgs.length ? PH + 90 : 20);
   const label = (text) => {
-    g.fillStyle = "#ffb547"; g.font = sans(800, 24);
+    g.fillStyle = BRAND.gold; g.font = sans(800, 24);
     if ("letterSpacing" in g) g.letterSpacing = "4px";
     g.fillText(text.toUpperCase(), X, ty);
     if ("letterSpacing" in g) g.letterSpacing = "0px";
     ty += 58;
   };
-  const big = (text) => { g.fillStyle = "#f7f4ee"; g.font = serif(650, 50); ty = wrapText(g, text, X, ty, W - 2 * X, 60, 2) + 34; };
+  const big = (text) => { g.fillStyle = BRAND.paper; g.font = serif(650, 50); ty = wrapText(g, text, X, ty, W - 2 * X, 60, 2) + 34; };
   if (t.genresTop.length) { label("Loves"); big(and(t.genresTop)); }
   if (t.leanings.length) { label("Leans"); big(t.leanings.join(" · ")); }
   if (t.decade) { label("Best decade"); big(`The ${t.decade}s`); }
-  g.fillStyle = "#a29dae"; g.font = sans(600, 30);
+  g.fillStyle = "#bdccd6"; g.font = sans(600, 30);
   g.fillText(`${t.rated.toLocaleString()} films rated · ${t.loved.toLocaleString()} loved`, X, H - 130);
-  g.fillStyle = "#f7f4ee"; g.font = sans(700, 30);
+  g.fillStyle = BRAND.paper; g.font = sans(700, 30);
   g.fillText(`Find films you'll love: ${location.host}`, X, H - 80);
   return new Promise((res, rej) => { try { c.toBlob((b) => (b ? res(b) : rej(new Error("no image"))), "image/png"); } catch (e) { rej(e); } });
 }
