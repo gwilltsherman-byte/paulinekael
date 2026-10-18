@@ -8,7 +8,7 @@
 //   it's served from the cache once fetched, and older builds' copies are dropped.
 const PREFIX = "kael-";
 const BASE = new URL("./", self.registration.scope);
-const SHELL = PREFIX + "shell-v16";
+const SHELL = PREFIX + "shell-v17";
 const SLOW = 3500;
 const SLOW_AFTER_SLOW = 500;   // once one request has timed out, the next ones don't wait as long
 let slowUntil = 0;           // until when (ms since 1970) the network counts as unresponsive
@@ -18,7 +18,9 @@ const SHELL_FILES = ["install-persistence.js", "./", "index.html", "app.css", "a
   "fonts/fraunces-latin.woff2", "fonts/fraunces-latin-ext.woff2"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
+  // A new worker must not seed its cache from the previous release's HTTP cache.
+  const files = SHELL_FILES.map((file) => new Request(new URL(file, BASE), { cache: "reload" }));
+  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(files)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -55,7 +57,9 @@ self.addEventListener("fetch", (e) => {
 /** The network's answer (kept for later), or the kept copy if the network fails or is slow. */
 function networkFirst(e, cacheName) {
   const req = e.request;
-  const fresh = fetch(req).then((res) => {
+  // Revalidate the HTTP cache as well as updating our offline cache. Default fetch
+  // can return old CSS/JS for minutes after Pages has published new HTML.
+  const fresh = fetch(req, { cache: "no-cache" }).then((res) => {
     slowUntil = 0;
     if (res.ok) { const copy = res.clone(); e.waitUntil(caches.open(cacheName).then((c) => c.put(req, copy))); }
     return res;

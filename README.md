@@ -90,6 +90,9 @@ into `index.html` at build time, and the streaming data waits until someone has 
 Data files are requested as `name?v=<build>` (the build is stamped in `meta.json`),
 and the service worker (`web/sw.js`) keeps each one until a new build, so launches
 after the first read them from the phone instead of the network.
+The page also versions its entry scripts, stylesheet and manifest by build. App-file
+requests revalidate the HTTP cache, and a new service worker precaches fresh copies,
+so newly published HTML does not keep using a previous release's cached interface.
 
 All the maths runs on the phone (`web/engine.js`, checked against the Python
 engine by `scripts/parity.mjs`), and everything you do is saved on the device. What is
