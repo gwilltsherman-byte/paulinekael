@@ -12,14 +12,14 @@
   <meta property="og:url" content="https://gwilltsherman-byte.github.io/paulinekael/">
   <meta property="og:title" content="Kael: the movie quiz that learns your taste">
   <meta property="og:description" content="Rate a few films you've seen and Kael learns your taste, then picks movies you'll love, with a % match, trailers and where to stream them. Free, no sign-up.">
-  <meta property="og:image" content="https://gwilltsherman-byte.github.io/paulinekael/icons/share.png">
+  <meta property="og:image" content="https://gwilltsherman-byte.github.io/paulinekael/icons/kael-share.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Kael: the movie quiz that learns your taste">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Kael: the movie quiz that learns your taste">
   <meta name="twitter:description" content="Rate a few films you've seen and Kael learns your taste, then picks movies you'll love, with a % match, trailers and where to stream them. Free, no sign-up.">
-  <meta name="twitter:image" content="https://gwilltsherman-byte.github.io/paulinekael/icons/share.png">
+  <meta name="twitter:image" content="https://gwilltsherman-byte.github.io/paulinekael/icons/kael-share.png">
   <script type="application/ld+json">
     {"@context": "https://schema.org", "@type": "WebApplication", "name": "Kael", "url": "https://gwilltsherman-byte.github.io/paulinekael/",
      "description": "Rate a few films you've seen and Kael learns your taste, then picks movies you'll love, with a % match, trailers and where to stream them. Free, no sign-up.", "applicationCategory": "EntertainmentApplication", "operatingSystem": "Any",
@@ -31,8 +31,9 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Kael">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/kael-apple-touch.png">
+  <link rel="icon" href="icons/kael-favicon.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="icons/kael-favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://image.tmdb.org">
   <link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -42,6 +43,7 @@
   <link rel="modulepreload" href="importer.js">
   <link rel="modulepreload" href="search.js">
   <link rel="modulepreload" href="share.js">
+  <link rel="modulepreload" href="brand.js">
   <script type="module" src="app.js"></script>
   <script src="install-persistence.js" defer></script>
 </head>
@@ -57,9 +59,8 @@
         <circle class="lr-inner" cx="100" cy="100" r="70"/>
         <path class="lr-cross" d="M100 30v140M30 100h140"/>
       </svg>
-      <span class="leader-k">K</span>
     </div>
-    <h1 class="loading-word">Kael<span>.</span></h1>
+    <h1 class="loading-word"><img src="brand/kael-wordmark.svg" width="490" height="128" alt="Kael"></h1>
     <p class="tagline">A personal picture of cinema.</p>
     <p id="loading-text" class="loading-status" role="status">Opening your film collection…</p>
     <button id="retry" class="pill-btn" hidden>Try again</button>
@@ -68,7 +69,7 @@
 
   <div id="app" hidden>
     <header class="masthead">
-      <button class="brand" data-go="home" aria-label="Kael home">kael<span aria-hidden="true">.</span></button>
+      <button class="brand" data-go="home" aria-label="Kael home"><img src="brand/kael-wordmark.svg" width="490" height="128" alt=""></button>
       <span class="brand-note">A personal picture of cinema.</span>
       <button class="masthead-settings" data-go="settings" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg></button>
     </header>

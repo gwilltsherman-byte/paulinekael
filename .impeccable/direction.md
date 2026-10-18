@@ -27,3 +27,9 @@ Considered repertory programmes, annotated critic notebooks, photographic contac
 ## Quality bar
 
 One coherent grammar across recommendation, rating, search, diary, personal history and settings. Preserve all catalog and personal-data behavior. No new dependencies. Verify desktop 1440×900, mobile 390×844 and the in-app viewport, keyboard flows, persistence, recommendations, Tonight, rating/date validation, empty search, settings and built-in suites. One combined review, one coordinated fix batch, one confirmation round.
+
+## Logo extension
+
+The custom uppercase KAEL wordmark completes the title-sequence direction. Its wide geometric lettering gives the app its own title card; a split K suggests a film splice and remains recognizable alone on the home screen or browser tab. Gold K and cream AEL sit on the existing navy field. Film titles retain Fraunces, preserving a clear difference between the app’s signature and its content.
+
+This is one identity across the masthead, loading screen, install icons, favicon, social image, and exported taste card. The shared path geometry in `web/brand.js` feeds both SVG/PNG generation and canvas rendering. Preserve its open joins and aspect ratio; do not substitute type or add glow, gradient, or shadow treatments. The masthead is 118px wide on desktop and 100px on mobile, with a 216px loading wordmark. Install artwork preserves the central 80% safe circle; the favicon uses a larger optical size so its splice stays visible. `DESIGN.md` records exact usage and regeneration rules.
