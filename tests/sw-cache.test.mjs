@@ -56,12 +56,24 @@ test('offline shell requests still recover the stored copy', async () => {
     fetch: async () => { throw new TypeError('offline'); },
     cache: {match: async (_request, options) => {
       matchOptions = options;
-      return new Response('offline copy');
+      return options?.ignoreSearch ? new Response('offline copy') : undefined;
     }},
   });
   const response = await w.networkFirst(w.event, 'shell');
   assert.equal(await response.text(), 'offline copy');
   assert.equal(matchOptions.ignoreSearch, true);
+  await w.settled();
+});
+
+test('offline shell requests prefer the exact build over an older unversioned copy', async () => {
+  const w = worker({
+    fetch: async () => { throw new TypeError('offline'); },
+    cache: {match: async (_request, options) => new Response(
+      options?.ignoreSearch ? 'older unversioned release' : 'requested build',
+    )},
+  });
+  const response = await w.networkFirst(w.event, 'shell');
+  assert.equal(await response.text(), 'requested build');
   await w.settled();
 });
 

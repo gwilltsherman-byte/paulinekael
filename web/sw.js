@@ -65,7 +65,8 @@ function networkFirst(e, cacheName) {
     return res;
   });
   e.waitUntil(fresh.catch(() => {}));   // keeps the worker alive to finish saving if we answered from the copy
-  const kept = () => caches.open(cacheName).then(c => c.match(req, { ignoreSearch: true }));
+  const kept = () => caches.open(cacheName).then(async (c) =>
+    (await c.match(req)) || c.match(req, { ignoreSearch: true }));
   let timer;
   const wait = Date.now() < slowUntil ? SLOW_AFTER_SLOW : SLOW;
   const slow = new Promise((resolve) => { timer = setTimeout(resolve, wait); }).then(kept).then((hit) => {
