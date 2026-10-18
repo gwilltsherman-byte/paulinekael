@@ -452,9 +452,9 @@
   ],
   "narrative": {
     "northStar": "Title sequence",
-    "overview": "Kael takes its visual character from a film title sequence: ink blue frames, a single gold emphasis, expressive film titles, and real film artwork. Cool pale working surfaces give ratings, metadata, search, and personal history room to remain legible. The identity belongs to the films and the viewer’s relationship to them.\n\nFraunces is the existing locally hosted display family, deliberately retained with its SIL Open Font License. System sans-serif handles controls and factual detail. Recommendations pair a film with the actual explanation produced from the viewer’s ratings; visual framing must never imply a fabricated critic’s verdict.",
+    "overview": "Kael takes its visual character from a film title sequence: custom KAEL lettering, ink blue frames, a single gold emphasis, expressive film titles, and real film artwork. Cool pale working surfaces give ratings, metadata, search, and personal history room to remain legible. The identity belongs to the films and the viewer’s relationship to them.\n\nFraunces is the existing locally hosted display family, deliberately retained with its SIL Open Font License. System sans-serif handles controls and factual detail. Recommendations pair a film with the actual explanation produced from the viewer’s ratings; visual framing must never imply a fabricated critic’s verdict.",
     "keyCharacteristics": [
-      "Real film art and serif titles carry the identity.",
+      "A geometric KAEL wordmark and split K identify the app; real film art and serif titles identify its content.",
       "Ink blue frames and gold actions provide hierarchy.",
       "Open sections, thin rules, and compact metadata support repeated work.",
       "Touch, keyboard, and reduced-motion behavior are part of the component contract."
@@ -479,6 +479,11 @@
         "name": "The Quiet Surface Rule",
         "body": "Use tonal separation and thin rules for ordinary sections. Reserve shadows for floating feedback, protected dialogs, and selected poster presentations.",
         "section": "elevation"
+      },
+      {
+        "name": "The Shared Mark Rule",
+        "body": "Use the custom KAEL paths from web/brand.js: gold split K and cream AEL on navy, without font reconstruction, gradients, glows, or shadows. Preserve the aspect ratio, 118px desktop / 100px mobile / 216px loading widths, install-icon safe circle, and separate optical favicon size. Generate SVG/PNG assets with scripts/brand-assets.mjs and draw the same paths on the taste-card canvas.",
+        "section": "components"
       }
     ],
     "dos": [
@@ -487,7 +492,8 @@
       "Do preserve 2:3 poster frames in shelves, grids, and the featured recommendation; apply the explicit mobile rating exception only in the rating stage.",
       "Do retain visible keyboard focus, semantic selected states, protected dialog focus, and reduced-motion behavior.",
       "Do make new standalone controls at least 44px high and icon controls at least 44px by 44px.",
-      "Do use open sections and rules for settings and personal history."
+      "Do use open sections and rules for settings and personal history.",
+      "Do generate logo assets from web/brand.js and preserve the split K, aspect ratio, and icon safe area."
     ],
     "donts": [
       "Don’t invent reviews, critic endorsements, user statistics, or model explanations to fill the layout.",
@@ -495,7 +501,8 @@
       "Don’t turn every section into a rounded, shadowed card.",
       "Don’t remove visible text labels or rely on rating color alone.",
       "Don’t infer a universal ban on gradients: the mobile rating caption and film-detail still use protective image shading.",
-      "Don’t propagate documented target-size exceptions as new component defaults."
+      "Don’t propagate documented target-size exceptions as new component defaults.",
+      "Don’t recreate KAEL with a font, close the K’s open joins, or add gradients or shadows to the logo."
     ]
   }
 }

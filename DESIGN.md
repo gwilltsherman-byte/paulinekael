@@ -160,12 +160,12 @@ components:
 
 **Creative North Star: "Title sequence"**
 
-Kael takes its visual character from a film title sequence: ink blue frames, a single gold emphasis, expressive film titles, and real film artwork. Cool pale working surfaces give ratings, metadata, search, and personal history room to remain legible. The identity belongs to the films and the viewer’s relationship to them.
+Kael takes its visual character from a film title sequence: custom KAEL lettering, ink blue frames, a single gold emphasis, expressive film titles, and real film artwork. Cool pale working surfaces give ratings, metadata, search, and personal history room to remain legible. The identity belongs to the films and the viewer’s relationship to them.
 
 Fraunces is the existing locally hosted display family, deliberately retained with its SIL Open Font License. System sans-serif handles controls and factual detail. Recommendations pair a film with the actual explanation produced from the viewer’s ratings; visual framing must never imply a fabricated critic’s verdict.
 
 **Key Characteristics:**
-- Real film art and serif titles carry the identity.
+- A geometric KAEL wordmark and split K identify the app; real film art and serif titles identify its content.
 - Ink blue frames and gold actions provide hierarchy.
 - Open sections, thin rules, and compact metadata support repeated work.
 - Touch, keyboard, and reduced-motion behavior are part of the component contract.
@@ -226,7 +226,7 @@ The contrast is expressive titles beside compact, factual controls. Most heading
 | Metadata | General supporting information; mobile film metadata and row descriptions use 11–12px. |
 | Badge | Compact status labels; uppercase, with the tracked label role in the frontmatter. |
 
-Additional intentional title roles are the brand (44px, weight 650; 37px mobile), desktop rating title (44px, weight 550), film-detail title (42px; 30px mobile), and dialog heading (30px; 28px mobile). Counts and match values use tabular numerals. Fine print reaches 75ch; panel prose reaches 70ch.
+Additional intentional title roles are the desktop rating title (44px, weight 550), film-detail title (42px; 30px mobile), and dialog heading (30px; 28px mobile). The KAEL wordmark is custom path artwork, not a typography role. Counts and match values use tabular numerals. Fine print reaches 75ch; panel prose reaches 70ch.
 
 **The Title and Task Rule.** Use Fraunces for film titles and editorial headings; use the system sans-serif for controls, dates, counts, and supporting metadata. Keep the locally hosted font and its license together.
 
@@ -270,6 +270,16 @@ Use one-pixel borders for ordinary controls and dividers. Selected service tiles
 
 ## Components
 
+### Wordmark and app mark
+
+The uppercase KAEL wordmark uses custom geometric paths on a 490 × 128 drawing field. The separated stem and diagonals of its K suggest a film splice. Wide, definite lettering gives the app a recognizable title card while leaving Fraunces to the films and editorial headings. The K is title gold (`#eac55c`); AEL is cream (`#f7f6ee`), shown on cinema ink (`#102c43`). Use the supplied paths and their proportions. Do not reconstruct the logo with a font, close the K’s open joins, add a period, or apply gradients, glows, or drop shadows to the mark.
+
+The masthead wordmark is 118px wide on desktop and 100px at 760px and below; the loading wordmark is 216px wide. Height follows the artwork’s aspect ratio. The home button retains a 44px minimum height, the accessible name “Kael home,” an empty decorative image alternative, an 80% opacity hover, and a gold keyboard focus outline. The loading image has the alternative “Kael.” The mark adds no independent animation.
+
+Install icons use only the gold K on a full-bleed navy square. On the 512px source field, the K is 300px high and its outer corners remain inside the central 80% safe circle, so circular and rounded masks retain the complete letter. Keep this safe area when exporting the 192px, 512px, and 180px Apple touch assets. The favicon has its own larger optical size: a 128px-high K within a 160px square, exported as SVG and a 32px PNG. Use that favicon artwork for browser tabs rather than shrinking the more generously inset install icon.
+
+`web/brand.js` owns the color values and path geometry. Its `drawWordmark` function renders the same artwork directly to the taste-card canvas, without font loading or a separate raster logo. `scripts/brand-assets.mjs` generates the committed wordmark SVG, app-mark SVG, favicons, install PNGs, and 1200 × 630 social artwork from that source. Run `node scripts/brand-assets.mjs` with the development-only `sharp` package available, or pass its absolute entry-point path as the first argument. The shipped app does not depend on `sharp`. Preserve the wordmark source, generated assets, and asset references together when updating the identity.
+
 ### Buttons
 
 Quiet, definite controls. Primary buttons use ink on the working surface; primary actions inside dark recommendation/welcome frames use gold. Secondary buttons are transparent with a control-rule border. Their shared base is the control radius, 10px by 16px padding, 14px weight-600 text, and a 44px minimum height. Icon-only controls use a 44px square circular hit area, with 18–22px SVG artwork.
@@ -304,7 +314,7 @@ A toast uses the ink surface, white message, and gold action. It clears the bott
 
 ### Accessibility contract
 
-The shared keyboard treatment is a three-pixel focus-blue outline with a four-pixel offset and small corner rounding. Do not remove it from interactive controls. Dialog containers suppress their own decorative outline after programmatic focus while their child controls retain visible focus. Labels, SVG icons, selected borders, and semantic states accompany color. New standalone controls should follow the 44px target convention. The compact rating choices below 360px retain a 38px minimum width within the dense repeated row; their height remains 44px. This specific density compromise does not establish a smaller general target token. Toast actions, the mobile picks action, and diary title buttons use a 44px minimum height.
+The shared keyboard treatment is a three-pixel focus-blue outline with a four-pixel offset and small corner rounding. Do not remove it from interactive controls. The masthead brand uses a gold focus outline on its navy background. Dialog containers suppress their own decorative outline after programmatic focus while their child controls retain visible focus. Labels, SVG icons, selected borders, and semantic states accompany color. New standalone controls should follow the 44px target convention. The compact rating choices below 360px retain a 38px minimum width within the dense repeated row; their height remains 44px. This specific density compromise does not establish a smaller general target token. Toast actions, the mobile picks action, and diary title buttons use a 44px minimum height.
 
 ## Do's and Don'ts
 
@@ -316,6 +326,7 @@ The shared keyboard treatment is a three-pixel focus-blue outline with a four-pi
 - Do retain visible keyboard focus, semantic selected states, protected dialog focus, and reduced-motion behavior.
 - Do make new standalone controls at least 44px high and icon controls at least 44px by 44px.
 - Do use open sections and rules for settings and personal history.
+- Do generate logo assets from `web/brand.js` and preserve the split K, aspect ratio, and icon safe area.
 
 ### Don't:
 
@@ -325,3 +336,4 @@ The shared keyboard treatment is a three-pixel focus-blue outline with a four-pi
 - Don’t remove visible text labels or rely on rating color alone.
 - Don’t infer a universal ban on gradients: the mobile rating caption and film-detail still use protective image shading.
 - Don’t propagate documented target-size exceptions as new component defaults.
+- Don’t recreate KAEL with a font, close the K’s open joins, or add gradients or shadows to the logo.

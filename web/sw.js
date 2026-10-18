@@ -8,13 +8,14 @@
 //   it's served from the cache once fetched, and older builds' copies are dropped.
 const PREFIX = "kael-";
 const BASE = new URL("./", self.registration.scope);
-const SHELL = PREFIX + "shell-v17";
+const SHELL = PREFIX + "shell-v18";
 const SLOW = 3500;
 const SLOW_AFTER_SLOW = 500;   // once one request has timed out, the next ones don't wait as long
 let slowUntil = 0;           // until when (ms since 1970) the network counts as unresponsive
 const DATA = PREFIX + "data-v3";
-const SHELL_FILES = ["install-persistence.js", "./", "index.html", "app.css", "app.js", "engine.js", "importer.js", "search.js", "share.js", "manifest.webmanifest",
-  "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png",
+const SHELL_FILES = ["install-persistence.js", "./", "index.html", "app.css", "app.js", "engine.js", "importer.js", "search.js", "share.js", "brand.js", "manifest.webmanifest",
+  "brand/kael-wordmark.svg", "brand/kael-mark.svg",
+  "icons/kael-192.png", "icons/kael-512.png", "icons/kael-apple-touch.png", "icons/kael-favicon.svg", "icons/kael-favicon.png",
   "fonts/fraunces-latin.woff2", "fonts/fraunces-latin-ext.woff2"];
 
 self.addEventListener("install", (e) => {
