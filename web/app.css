@@ -599,6 +599,17 @@ details p { font-size: 13px; color: var(--muted); max-width: 70ch; }
   .toast { bottom: calc(var(--tabbar) + 12px); font-size: 13px; }
   .toast.high { bottom: calc(var(--tabbar) + 12px); }
 }
+@media (max-width: 760px) and (display-mode: standalone) {
+  /* iOS can anchor bottom:0 above the screen by the top safe area (WebKit 236445).
+     Share a top-based extent; cap it for versions that put the status bar outside the app. */
+  :root { --app-height: 100vh; }
+  @supports (height: 100dvh) {
+    :root { --app-height: min(100vh, calc(100dvh + env(safe-area-inset-top))); }
+  }
+  .tabbar { top: calc(var(--app-height) - var(--tabbar)); bottom: auto; }
+  .view { bottom: auto; height: calc(var(--app-height) - var(--masthead) - var(--tabbar)); }
+  .film,.sheet,.loading { bottom: auto; height: var(--app-height); }
+}
 @media (max-width: 359px) {
   :root { --gutter: 16px; }
   .hero { grid-template-columns: 90px minmax(0,1fr); gap: 10px 12px; padding: 14px; }

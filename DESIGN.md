@@ -251,6 +251,8 @@ The spacing vocabulary is a practical set of repeated 4–32px values, not a str
 
 The interface uses native document zoom. Horizontal shelves scroll within their own region and use proximity snapping; they do not displace the page viewport.
 
+On mobile Home Screen launches, navigation, view content, and full-screen overlays share an explicit height measured from the top. This avoids iOS positioning the bottom bar above the screen by the top safe area. Use the smaller of `100vh` and `100dvh` plus the top safe area, with `100vh` as the older-browser fallback; keep bottom safe-area padding inside the bar. Browser tabs retain their existing bottom anchoring.
+
 ## Elevation & Depth
 
 Ordinary surfaces remain flat, separated through background tone and single-pixel rules. There is no global backdrop blur. Poster depth, modal protection, and transient feedback are the deliberate exceptions. Dark image gradients protect overlaid film text; they are not a general decoration for controls.
