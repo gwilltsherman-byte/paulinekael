@@ -8,6 +8,7 @@ const $ = (id) => document.getElementById(id);
 const K = {
   answers: "mt.answers.v1",  // [[imdbId, label | stars | null], ...] oldest first
   hidden: "mt.hidden.v1",    // [imdbId, ...] "not for me"
+  snoozed: "mt.snoozed.v1",  // [[imdbId, returnAfterMs], ...] temporary recommendation skips
   watch: "mt.watch.v1",      // [imdbId, ...] newest first
   seen: "mt.seen.v1",        // [imdbId, ...] watched but not rated (imported)
   friends: "mt.friends.v1",  // [{id, name, rated, code, added}, ...] shared tastes
@@ -31,6 +32,8 @@ const RICON = {
 const IMG = "https://image.tmdb.org/t/p/";
 const GOAL = 20;        // ratings for sharp recommendations
 const WALL = 12;        // films per poster wall
+const SKIP_DAYS = 90;
+const SKIP_MS = SKIP_DAYS * 24 * 60 * 60 * 1000;
 // "Best bets" ranks by a cautious score: predicted stars minus uncertainty. Films
 // with small audiences get extra uncertainty, because their average rating comes
 // mostly from devoted fans. Content-placed films get more still.
@@ -96,6 +99,8 @@ const isAnswer = (a) => a === null || (typeof a === "string" && Object.hasOwn(LA
 const asList = (v) => (Array.isArray(v) ? v : []);
 const clean = {
   ids: (v) => asList(v).filter(isId),
+  snoozed: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0])
+    && Number.isSafeInteger(e[1]) && e[1] > 0 && e[1] <= 8640000000000000).map(([id, until]) => [id, until]),
   answers: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0]) && isAnswer(e[1] ?? null)).map(([id, a]) => [id, a ?? null]),
   diary: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0]) && isDay(e[1]) && isAnswer(e[2] ?? null)).map(([id, d, a]) => [id, d, a ?? null]),
   friends: (v) => asList(v).filter((f) => f && typeof f === "object" && typeof f.id === "string" && typeof f.name === "string"
@@ -159,6 +164,7 @@ function servicesOf(i) {
 }
 let answers = clean.answers(store.get(K.answers, []));
 let hidden = new Set(clean.ids(store.get(K.hidden, [])));
+let snoozed = new Map(clean.snoozed(store.get(K.snoozed, [])));
 let watch = clean.ids(store.get(K.watch, []));
 let seenOnly = new Set(clean.ids(store.get(K.seen, [])));
 let friends = clean.friends(store.get(K.friends, []));
@@ -198,6 +204,15 @@ const imdbUrl = (i) => `https://www.imdb.com/title/tt${String(imdbOf(i)).padStar
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const and = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}` : xs[0]);
 const savePrefs = () => store.set(K.prefs, prefs);
+const isSnoozed = (i, now = Date.now()) => (snoozed.get(imdbOf(i)) || 0) > now;
+
+/** Expired skips become eligible again, including when the app stays open for days. */
+function expireSnoozes() {
+  const now = Date.now();
+  let changed = false;
+  for (const [id, until] of snoozed) if (until <= now) { snoozed.delete(id); changed = true; }
+  if (changed) { store.set(K.snoozed, [...snoozed]); homeDirty = true; }
+}
 
 function labelOf(a) {
   if (typeof a !== "number") return a;
@@ -352,14 +367,17 @@ function toggleWatch(i) {
 }
 
 let toastTimer;
-function toast(msg, undo) {
+function toast(msg, undo, { persistent = false, onDismiss } = {}) {
   const t = $("toast");
-  t.innerHTML = `<span>${esc(msg)}</span>${undo ? "<button>Undo</button>" : ""}`;
+  t.innerHTML = `<span>${esc(msg)}</span>${undo ? "<button>Undo</button>" : ""}${persistent ? '<button data-toast-dismiss>Dismiss</button>' : ""}`;
   t.hidden = false;
   t.classList.toggle("high", view === "rate" || view === "wall");
   if (undo) t.querySelector("button").onclick = () => { t.hidden = true; undo(); };
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.hidden = true; }, 3400);
+  if (persistent) {
+    t.querySelector("[data-toast-dismiss]").onclick = () => { t.hidden = true; onDismiss?.(); };
+    t.querySelector("button").focus({ preventScroll: true });
+  } else toastTimer = setTimeout(() => { t.hidden = true; }, 3400);
 }
 
 // ---------------------------------------------------------------- sheets
@@ -562,7 +580,7 @@ let simCands = null;
 function moreLike(i, sc) {
   simCands ??= E.films.votes.reduce((out, v, j) => (v >= 1000 ? (out.push(j), out) : out), []);
   const skip = new Set([...hidden].map(idx));
-  const cands = simCands.filter((j) => j !== i && !S.answers.has(j) && !skip.has(j) && !noArt.has(j));
+  const cands = simCands.filter((j) => j !== i && !S.answers.has(j) && !skip.has(j) && !isSnoozed(j) && !noArt.has(j));
   const near = E.similar(i, cands, 60);
   const score = new Map(near.map(([j, sim]) => [j, sim + 0.4 * (E.match(sc[j], S.sd(j)) - 0.5)]));
   return near.map(([j]) => j).sort((a, b) => score.get(b) - score.get(a)).slice(0, 16);
@@ -1035,8 +1053,9 @@ function favoriteGenres() {
 /** Home's hero pick and shelves. Candidates come from a few pools (popular, lesser
  *  known, new, most-your-taste) scored once with the same cautious score as Best bets. */
 function buildHome() {
+  expireSnoozes();
   const f = E.films, sc = S.scores(), lf = S.lifts(), now = new Date().getFullYear();
-  const skip = new Set([...hidden, ...watch, ...seenOnly].map(idx));
+  const skip = new Set([...hidden, ...watch, ...seenOnly, ...snoozed.keys()].map(idx));
   const popular = [], deep = [], fresh = [];
   for (let i = 0; i < E.n; i++) {
     const v = f.votes[i];
@@ -1156,6 +1175,7 @@ const ICON = {
   chevron: `<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>`,
   down: `<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>`,
   edit: `<svg viewBox="0 0 24 24"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="M13.5 6.5l4 4"/></svg>`,
+  later: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>`,
 };
 
 function heroCard(i) {
@@ -1175,7 +1195,9 @@ function heroCard(i) {
         <button class="primary" data-info="${i}">Explore film ${ICON.chevron}</button>
         <button class="btn glass" data-save="${i}" aria-pressed="false">${ICON.save}Save to watchlist</button>
         ${trailer(i) ? `<button class="btn quiet" data-trailer="${i}">${ICON.play}Trailer</button>` : ""}
+        <button class="btn quiet" data-skip="${i}" aria-label="Skip for now: ${esc(title(i))}" aria-describedby="skip-note">${ICON.later}Skip for now</button>
       </div>
+      <p class="hero-skip-note" id="skip-note">Skipped films can return after ${SKIP_DAYS} days.</p>
     </div>
   </article>`;
 }
@@ -1195,11 +1217,12 @@ function shelfHtml(sh, withMatch = true) {
 }
 
 function renderHome() {
+  expireSnoozes();
   const el = $("home");
   if (S.rated < 3) {
     // Not enough ratings for picks yet: say how to start, and show what's popular.
     const now = new Date().getFullYear(), f = E.films, pop = [];
-    for (let i = 0; i < E.n; i++) if (f.year[i] >= now - 2 && f.votes[i] >= 20000 && !S.answers.has(i) && !noArt.has(i)) pop.push(i);
+    for (let i = 0; i < E.n; i++) if (f.year[i] >= now - 2 && f.votes[i] >= 20000 && !S.answers.has(i) && !isSnoozed(i) && !noArt.has(i)) pop.push(i);
     pop.sort((a, b) => f.votes[b] - f.votes[a]);
     el.innerHTML = `<div class="welcome welcome-start"><div class="welcome-copy">
         <h2>Good films.<br>Your kind of good.</h2>
@@ -1233,6 +1256,31 @@ function homeSave(i) {
   refresh();
 }
 
+/** A skip changes only recommendation eligibility, never the viewer's taste. */
+function homeSkip(i) {
+  const id = imdbOf(i), previous = snoozed.get(id);
+  const next = new Map(snoozed).set(id, Date.now() + SKIP_MS);
+  if (!store.set(K.snoozed, [...next])) return;
+  snoozed = next;
+  const focusNext = () => {
+    if (view === "home") $("home").querySelector("[data-skip], [data-tonight]")?.focus({ preventScroll: true });
+  };
+  const redraw = () => {
+    homeDirty = true;
+    refresh();
+    focusNext();
+  };
+  redraw();
+  toast(`Skipped for ${SKIP_DAYS} days. Your ratings are unchanged.`, () => {
+    const restored = new Map(snoozed);
+    if (previous === undefined) restored.delete(id);
+    else restored.set(id, previous);
+    if (!store.set(K.snoozed, [...restored])) return;
+    snoozed = restored;
+    redraw();
+  }, { persistent: true, onDismiss: focusNext });
+}
+
 // ---------------------------------------------------------------- tonight
 
 /** Up to 30 picks for a Tonight request, best first (varied, so the first three differ). */
@@ -1252,6 +1300,7 @@ function tonightPicks(st) {
 }
 
 async function openTonight() {
+  expireSnoozes();
   if (S.rated < 3) return toast(`Rate ${3 - S.rated} more film${S.rated === 2 ? "" : "s"} first, then we'll find you something`);
   if (homeDirty || !home) { home = buildHome(); homeDirty = false; }
   const friend = activeFriend();
@@ -1402,6 +1451,7 @@ function moodItems(mood, items) {
 /** A browse list: your best matches that pass test (and fit mood), or, before you've
  *  rated 3 films, the most popular. */
 function browseList(test, mood = null, n = 60) {
+  expireSnoozes();
   let items;
   if (S.rated >= 3) {
     if (homeDirty || !home) { home = buildHome(); homeDirty = false; }
@@ -1410,7 +1460,7 @@ function browseList(test, mood = null, n = 60) {
     return varied(items.sort((a, b) => home.key.get(b) - home.key.get(a)), home.key).slice(0, n);
   }
   items = [];
-  for (let i = 0; i < E.n; i++) if (E.films.votes[i] >= 5000 && !S.answers.has(i) && !noArt.has(i) && test(i)) items.push(i);
+  for (let i = 0; i < E.n; i++) if (E.films.votes[i] >= 5000 && !S.answers.has(i) && !isSnoozed(i) && !noArt.has(i) && test(i)) items.push(i);
   if (mood) items = moodItems(mood, items);
   return items.sort((a, b) => E.films.votes[b] - E.films.votes[a]).slice(0, n);
 }
@@ -1421,8 +1471,9 @@ function renderBrowse() {
     el.innerHTML = `<div class="browse-head"><h2>${esc(browsing.title)}</h2>
       <button class="icon-round" data-browse-close aria-label="Back to browse"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>`;
     const sc = S.scores();
-    res.innerHTML = browsing.items.map((i) => filmRow(i, sc)).join("") || `<li class="empty">Nothing here yet.</li>`;
-    setBackdrop(browsing.items[0] ?? -1);
+    const items = browsing.items.filter((i) => !isSnoozed(i));
+    res.innerHTML = items.map((i) => filmRow(i, sc)).join("") || `<li class="empty">Nothing here yet.</li>`;
+    setBackdrop(items[0] ?? -1);
     return;
   }
   res.innerHTML = "";
@@ -1883,7 +1934,7 @@ async function importFile(file) {
 // ---------------------------------------------------------------- backup
 
 // A backup is every stored key (K), as saved: {app, version, saved, data: {key: value}}.
-const CLEAN = { [K.answers]: clean.answers, [K.hidden]: clean.ids, [K.watch]: clean.ids, [K.seen]: clean.ids,
+const CLEAN = { [K.answers]: clean.answers, [K.hidden]: clean.ids, [K.snoozed]: clean.snoozed, [K.watch]: clean.ids, [K.seen]: clean.ids,
   [K.friends]: clean.friends, [K.queue]: clean.ids, [K.diary]: clean.diary };
 
 function renderBackup() {
@@ -1958,6 +2009,9 @@ async function restoreBackup(file) {
     const ratedIds = new Set(merged.filter(([, a]) => a != null).map(([id]) => id));
     store.set(K.answers, merged);
     store.set(K.hidden, union([...hidden], list(K.hidden)));
+    const mergedSkips = new Map(snoozed);
+    for (const [id, until] of list(K.snoozed)) mergedSkips.set(id, Math.max(until, mergedSkips.get(id) || 0));
+    store.set(K.snoozed, [...mergedSkips].filter(([, until]) => until > Date.now()));
     store.set(K.seen, union([...seenOnly], list(K.seen)).filter((id) => !ratedIds.has(id)));
     store.set(K.watch, union(watch, list(K.watch)).filter((id) => !ratedIds.has(id)));
     store.set(K.diary, union(diary, list(K.diary), ([id, date]) => `${id}|${date}`));
@@ -2063,6 +2117,7 @@ function wire() {
     let b;
     if ((b = at("[data-trailer]"))) openFilm(n(b, "trailer"), { play: true });
     else if ((b = at("[data-save]"))) homeSave(n(b, "save"));
+    else if ((b = at("[data-skip]"))) homeSkip(n(b, "skip"));
     else if ((b = at("[data-info]"))) openFilm(n(b, "info"));
     else if (at("[data-tonight]")) openTonight();
     else if (at("[data-wall]")) openWall();
@@ -2173,7 +2228,8 @@ function wire() {
   $("unhide").addEventListener("click", () => { hidden.clear(); saveAll(); renderSettings(); });
   $("reset").addEventListener("click", () => {
     if (!confirm("Delete all your ratings, watchlist, diary and imports, and start over?")) return;
-    answers = []; hidden.clear(); watch = []; seenOnly.clear(); diary = []; rateQueue = []; rateStack = [];
+    answers = []; hidden.clear(); snoozed.clear(); watch = []; seenOnly.clear(); diary = []; rateQueue = []; rateStack = [];
+    store.set(K.snoozed, []);
     store.set(K.diary, diary); saveQueue(); saveAll();
     prefs.seed = newSeed(); savePrefs(); rebuild(); show("rate");
   });
