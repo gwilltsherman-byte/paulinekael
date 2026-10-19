@@ -139,6 +139,7 @@ h1,h2,h3 { text-wrap: balance; }
 .hero .fwhy { margin: 0; padding: 17px 0 0; border-top: 1px solid #3d586c; color: #c3d3de; font-size: 13px; line-height: 1.7; }
 .hero .fwhy b { color: #fff; font-weight: 550; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.hero-skip-note { grid-column: 1/-1; margin: 8px 0 0; color: #b9cbd8; font-size: 12px; }
 .hero .primary { color: var(--ink); background: var(--accent); }
 .hero .btn.glass { color: #fff; border-color: #698294; }
 .hero .btn.glass:hover,.hero .btn.quiet:hover { background: #284c65; }
