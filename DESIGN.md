@@ -251,7 +251,7 @@ The spacing vocabulary is a practical set of repeated 4–32px values, not a str
 
 The interface uses native document zoom. Horizontal shelves scroll within their own region and use proximity snapping; they do not displace the page viewport.
 
-On mobile Home Screen launches, navigation, view content, and full-screen overlays share an explicit height measured from the top. This avoids iOS positioning the bottom bar above the screen by the top safe area. Use the smaller of `100vh` and `100dvh` plus the top safe area, with `100vh` as the older-browser fallback; keep bottom safe-area padding inside the bar. Browser tabs retain their existing bottom anchoring.
+On mobile Home Screen launches, the `html` and `body` roots, navigation, view content, and full-screen overlays share an explicit height measured from the top. Size both roots explicitly: percentage root heights can clip the controls even when the navigation itself has the correct bounds. Use the smaller of `100vh` and `100dvh` plus the top safe area, with `100vh` as the older-browser fallback; keep bottom safe-area padding inside the bar. Browser tabs retain their existing bottom anchoring.
 
 ## Elevation & Depth
 
