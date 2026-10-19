@@ -606,6 +606,8 @@ details p { font-size: 13px; color: var(--muted); max-width: 70ch; }
   @supports (height: 100dvh) {
     :root { --app-height: min(100vh, calc(100dvh + env(safe-area-inset-top))); }
   }
+  /* Percentage roots can still clip the correctly positioned controls on iOS. */
+  html,body { height: var(--app-height); }
   .tabbar { top: calc(var(--app-height) - var(--tabbar)); bottom: auto; }
   .view { bottom: auto; height: calc(var(--app-height) - var(--masthead) - var(--tabbar)); }
   .film,.sheet,.loading { bottom: auto; height: var(--app-height); }
