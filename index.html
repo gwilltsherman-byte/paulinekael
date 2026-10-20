@@ -34,19 +34,19 @@
   <link rel="apple-touch-icon" href="icons/kael-apple-touch.png">
   <link rel="icon" href="icons/kael-favicon.png" type="image/png" sizes="32x32">
   <link rel="icon" href="icons/kael-favicon.svg" type="image/svg+xml">
-  <link rel="manifest" href="manifest.webmanifest?v=20261019163237">
+  <link rel="manifest" href="manifest.webmanifest?v=20261020233907">
   <link rel="preconnect" href="https://image.tmdb.org">
   <link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="app.css?v=20261019163237">
-  <link rel="preload" as="fetch" crossorigin href="data/quick.json?v=20261019163237">
-  <link rel="preload" as="fetch" crossorigin href="data/seen.bin?v=20261019163237">
+  <link rel="stylesheet" href="app.css?v=20261020233907">
+  <link rel="preload" as="fetch" crossorigin href="data/quick.json?v=20261020233907">
+  <link rel="preload" as="fetch" crossorigin href="data/seen.bin?v=20261020233907">
   <link rel="modulepreload" href="engine.js">
   <link rel="modulepreload" href="importer.js">
   <link rel="modulepreload" href="search.js">
   <link rel="modulepreload" href="share.js">
   <link rel="modulepreload" href="brand.js">
-  <script type="module" src="app.js?v=20261019163237"></script>
-  <script src="install-persistence.js?v=20261019163237" defer></script>
+  <script type="module" src="app.js?v=20261020233907"></script>
+  <script src="install-persistence.js?v=20261020233907" defer></script>
 </head>
 <body>
   <div id="backdrop" aria-hidden="true"></div>
@@ -148,6 +148,13 @@
           <button class="opt" data-sort="short">Shortest</button>
           <button class="opt" data-sort="new">Newest</button>
           <button class="opt" data-sort="mine">On my services</button>
+          <button class="opt opt-end" data-select>Select</button>
+        </div>
+        <div class="watch-bar" id="watch-bar" hidden>
+          <span class="watch-n" id="watch-n" aria-live="polite"></span>
+          <button class="pill-btn" data-wsel="all">Select all</button>
+          <button class="pill-btn remove" data-wsel="remove">Remove</button>
+          <button class="pill-btn" data-wsel="done">Cancel</button>
         </div>
         <div id="watch" class="grid"></div>
       </div>

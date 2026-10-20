@@ -1372,6 +1372,8 @@ function renderWatchCount() {
   c.textContent = n > 99 ? "99+" : n;
 }
 
+let watchSel = null;   // while choosing films to remove from the Watchlist: the chosen ones
+
 function renderWatch() {
   const sc = S.scores(), sort = prefs.watchSort || "match";
   let items = watch.map(idx).filter((i) => i !== undefined).sort((a, b) => sc[b] - sc[a]);
@@ -1379,19 +1381,59 @@ function renderWatch() {
   if (sort === "short") items.sort((a, b) => (runtime(a) || 999) - (runtime(b) || 999));
   if (sort === "new") items.sort((a, b) => year(b) - year(a));
   if (sort === "mine") { const mine = new Set(prefs.services); items = items.filter((i) => providersOf(i).some((p) => mine.has(p))); }
+  if (!items.length) watchSel = null;
+  const picking = watchSel !== null;
+  if (picking) for (const i of watchSel) if (!items.includes(i)) watchSel.delete(i);
   const bar = $("watch-sort");
-  bar.hidden = all < 2;
+  bar.hidden = all < 2 || picking;
   bar.querySelectorAll("[data-sort]").forEach((b) => {
     b.setAttribute("aria-pressed", String(b.dataset.sort === sort));
     if (b.dataset.sort === "mine") b.hidden = !prefs.services.length;
   });
   setBackdrop(items[0] ?? -1);
-  $("watch").innerHTML = items.length ? items.map((i) => `<button class="gtile" data-i="${i}">
+  $("watch").innerHTML = items.length ? items.map((i) => `<button class="gtile${picking && watchSel.has(i) ? " sel" : ""}" data-i="${i}"${picking ? ` aria-pressed="${watchSel.has(i)}"` : ""}>
       ${poster(i, "w342")}<div class="gmatch">${matchPill(E.match(sc[i], S.sd(i)), true)}</div>
+      ${picking ? `<span class="check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>` : ""}
       <div class="gt">${esc(title(i))}</div><div class="gs">${esc([year(i), hm(runtime(i))].filter(Boolean).join(" · "))}</div>
       ${logos(i, 5)}</button>`).join("")
     : all ? `<div class="empty" style="grid-column:1/-1">None of your saved films are on your services right now.</div>`
     : `<div class="empty" style="grid-column:1/-1">Nothing saved yet.<br>Tap Save on a pick on Home to keep it here.</div>`;
+  $("watch-bar").hidden = !picking;
+  if (picking) renderWatchPick(items.length);
+}
+
+/** The bar above the Watchlist while choosing films to remove: how many are chosen. */
+function renderWatchPick(shown = $("watch").querySelectorAll(".gtile").length) {
+  const n = watchSel.size, bar = $("watch-bar"), remove = bar.querySelector('[data-wsel="remove"]');
+  $("watch-n").textContent = n ? `${n} selected` : "Tap films to select them";
+  bar.querySelector('[data-wsel="all"]').textContent = n && n === shown ? "Select none" : "Select all";
+  remove.textContent = n ? `Remove ${n}` : "Remove";
+  remove.disabled = !n;
+}
+
+/** Take the films with these IMDb ids off the Watchlist, with an Undo that puts them
+ *  back where they were. */
+function removeWatch(ids) {
+  const gone = new Set(ids), before = watch;
+  watch = watch.filter((id) => !gone.has(id));
+  const n = before.length - watch.length;
+  if (!n) return;
+  saveAll();
+  homeDirty = true;
+  toast(`Removed ${n} ${n === 1 ? "film" : "films"} from Watchlist`, () => {
+    const kept = new Set(watch);
+    watch = [...watch.filter((id) => !before.includes(id)), ...before.filter((id) => gone.has(id) || kept.has(id))];
+    saveAll();
+    homeDirty = true;
+    refresh();
+  });
+}
+
+function endWatchPick() {
+  watchSel = null;
+  renderWatch();
+  const select = $("watch-sort").querySelector("[data-select]");
+  ($("watch-sort").hidden ? $("lib-watch") : select).focus({ preventScroll: true });
 }
 
 function search(q) {
@@ -1528,6 +1570,7 @@ function renderLib() {
     panel.setAttribute("aria-labelledby", `tab-${t}`);
     panel.tabIndex = 0;
   }
+  if (libTab !== "watch") watchSel = null;
   if (libTab === "watch") renderWatch();
   else if (libTab === "diary") renderDiary();
   else renderRated();
@@ -2027,6 +2070,7 @@ async function restoreBackup(file) {
 
 function show(v) {
   view = v;
+  watchSel = null;
   document.body.dataset.view = v;
   document.querySelectorAll(".view").forEach((s) => { s.hidden = s.id !== `view-${v}`; });
   const tab = { wall: "rate", settings: "me" }[v] || v;
@@ -2099,7 +2143,10 @@ function wire() {
   });
   document.addEventListener("keydown", (ev) => {
     trapDialogFocus(ev);
-    if (ev.key === "Escape") { if (dismissSheet) dismissSheet(); else if (filmI >= 0) closeFilm(); return; }
+    if (ev.key === "Escape") {
+      if (dismissSheet) dismissSheet(); else if (filmI >= 0) closeFilm(); else if (watchSel && view === "lib") endWatchPick();
+      return;
+    }
     const key = (ev.key || "").toLowerCase(), act = RATE_KEYS[key];
     if ((!act && key !== "z") || ev.repeat || ev.metaKey || ev.ctrlKey || ev.altKey || view !== "rate"
       || !$("sheet").hidden || !$("film").hidden || ev.target.closest?.("input, textarea, select")) return;
@@ -2131,10 +2178,34 @@ function wire() {
   $("watch-sort").addEventListener("click", (ev) => {
     const b = ev.target.closest("[data-sort]");
     if (b) { prefs.watchSort = b.dataset.sort; savePrefs(); renderWatch(); }
+    else if (ev.target.closest("[data-select]")) {
+      watchSel = new Set();
+      renderWatch();
+      $("watch-bar").querySelector('[data-wsel="all"]').focus({ preventScroll: true });
+    }
   });
   $("watch").addEventListener("click", (ev) => {
     const t = ev.target.closest(".gtile");
-    if (t) openFilm(Number(t.dataset.i));
+    if (!t) return;
+    const i = Number(t.dataset.i);
+    if (!watchSel) return openFilm(i);
+    const on = !watchSel.has(i);
+    if (on) watchSel.add(i); else watchSel.delete(i);
+    t.classList.toggle("sel", on);
+    t.setAttribute("aria-pressed", String(on));
+    renderWatchPick();
+  });
+  $("watch-bar").addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-wsel]");
+    if (!b) return;
+    if (b.dataset.wsel === "all") {
+      const shown = [...$("watch").querySelectorAll(".gtile")].map((t) => Number(t.dataset.i));
+      watchSel = new Set(watchSel.size === shown.length ? [] : shown);
+      renderWatch();
+    } else {
+      if (b.dataset.wsel === "remove") removeWatch([...watchSel].map(imdbOf));
+      endWatchPick();
+    }
   });
   for (const id of ["results", "mine"]) {
     $(id).addEventListener("click", (ev) => {
