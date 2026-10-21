@@ -482,7 +482,7 @@
       },
       {
         "name": "The Shared Mark Rule",
-        "body": "Use the custom KAEL paths from web/brand.js: gold split K and cream AEL on navy, without font reconstruction, gradients, glows, or shadows. Preserve the aspect ratio, 118px desktop / 100px mobile / 216px loading widths, ticket-stub install icon inside its safe circle, and separate optical favicon size. Generate SVG/PNG assets with scripts/brand-assets.mjs and draw the same paths on the taste-card canvas.",
+        "body": "Use the custom KAEL paths from web/brand.js: gold split K and cream AEL on navy, without font reconstruction, gradients, glows, or shadows. Preserve the aspect ratio, 118px desktop / 100px mobile / 216px loading widths, red-on-white ticket-stub install icon inside its safe circle, and separate optical favicon size. Generate SVG/PNG assets with scripts/brand-assets.mjs and draw the same paths on the taste-card canvas.",
         "section": "components"
       }
     ],
