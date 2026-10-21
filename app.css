@@ -42,7 +42,7 @@
   color-scheme: light;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; }
+html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
 html { background: var(--bg); touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { color: var(--text); font: 16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; -webkit-font-smoothing: antialiased; }
 button, input, select { font: inherit; }
@@ -76,7 +76,7 @@ h1,h2,h3 { text-wrap: balance; }
 .tabbar button:hover { color: #fff; }
 .count { position: absolute; top: 12px; right: -2px; min-width: 17px; padding: 0 4px; font-size: 11px; line-height: 17px; background: var(--accent); border-radius: 9px; color: var(--ink); }
 .view { position: fixed; inset: var(--masthead) 0 0; }
-.view.scroll { overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--gutter) 64px; }
+.view.scroll { overflow: hidden auto; overscroll-behavior: contain; padding: 0 var(--gutter) 64px; }
 .head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 35px 0 26px; }
 .head h1 { font: 550 40px/1.15 var(--display); letter-spacing: -.025em; margin: 0; }
 .page-intro { color: var(--muted); margin: 7px 0 0; font-size: 14px; }
@@ -214,7 +214,7 @@ kbd { font: inherit; border: 1px solid var(--line-2); border-radius: 3px; paddin
 .act.like svg { color: var(--like); }
 .act.love svg { color: var(--love); }
 .act.save svg { color: #8a6818; }
-.wall { position: absolute; top: var(--top); bottom: 90px; left: var(--gutter); right: var(--gutter); overflow-y: auto; display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 20px; padding: 5px; align-content: start; }
+.wall { position: absolute; top: var(--top); bottom: 90px; left: var(--gutter); right: var(--gutter); overflow: hidden auto; display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 20px; padding: 5px; align-content: start; }
 .wall .tile { position: relative; text-align: left; min-width: 0; }
 .wall .poster { width: 100%; }
 .wall .t { font-size: 13px; display: block; margin-top: 8px; line-height: 1.3; }
@@ -352,7 +352,7 @@ details p { font-size: 13px; color: var(--muted); max-width: 70ch; }
 .backup-note:empty { display: none; }
 .me-actions { display: flex; justify-content: space-between; gap: 16px; padding-top: 22px; }
 /* Film detail: a real film still above a readable film record. */
-.film { position: fixed; inset: 0; z-index: 20; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); }
+.film { position: fixed; inset: 0; z-index: 20; overflow: hidden auto; overscroll-behavior: contain; background: var(--bg); }
 .film:focus,.sheet-card:focus { outline: none; }
 .film-hero { position: relative; isolation: isolate; height: 320px; overflow: hidden; background: var(--ink); }
 .film-blur { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; opacity: .7; }
@@ -406,7 +406,7 @@ details p { font-size: 13px; color: var(--muted); max-width: 70ch; }
 .where p { color: var(--muted); font-size: 14px; }
 /* Protected tasks: plain, solid dialogs with a clear close and visible selection. */
 .sheet { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 24px; background: #071c30a8; }
-.sheet-card { position: relative; width: 100%; max-width: 590px; max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); padding: 30px; border-radius: 12px; box-shadow: 0 18px 60px #00000044; }
+.sheet-card { position: relative; width: 100%; max-width: 590px; max-height: 90dvh; overflow: hidden auto; overscroll-behavior: contain; background: var(--bg); padding: 30px; border-radius: 12px; box-shadow: 0 18px 60px #00000044; }
 .sheet-card h3 { font: 550 30px/1.2 var(--display); letter-spacing: -.02em; margin: 0 40px 12px 0; }
 .sheet-card .sub { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
 .sheet-close { position: absolute; right: 13px; top: 13px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
@@ -541,7 +541,7 @@ details p { font-size: 13px; color: var(--muted); max-width: 70ch; }
   .stile .ts { font-size: 11px; }
   .topbar { padding: 6px 20px; }
   .topbar .pill-btn { font-size: 12px; padding: 8px 11px; }
-  .rate-layout { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0 20px 15px; height: calc(100% - var(--top)); overflow-y: auto; }
+  .rate-layout { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0 20px 15px; height: calc(100% - var(--top)); overflow: hidden auto; }
   .rate-copy { display: contents; }
   .rate-copy h1,.rate-intro,.rate-caption,.rate-learning,.keyboard-tip { display: none; }
   .stage { order: -1; flex: none; width: min(100%,280px); height: calc(100dvh - 335px); min-height: 220px; max-height: 470px; aspect-ratio: auto; margin: 0 auto 14px; }
