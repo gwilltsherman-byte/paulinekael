@@ -249,7 +249,7 @@ The spacing vocabulary is a practical set of repeated 4–32px values, not a str
 | Below 360px | Gutters become 16px; feature poster becomes 90px and inner padding 14px; hide the brand note. |
 | Desktop height at most 720px | Reduce rating poster to 290px, gap to 45px, and surrounding vertical spacing. |
 
-The interface uses native document zoom. Horizontal shelves scroll within their own region and use proximity snapping; they do not displace the page viewport.
+The page does not zoom or pan sideways: the viewport disallows scaling, pinch gestures are cancelled for iOS Safari, and the page-level scroll regions clip horizontal overflow. Horizontal shelves scroll within their own region and use proximity snapping; they do not displace the page viewport.
 
 On mobile Home Screen launches, the `html` and `body` roots, navigation, view content, and full-screen overlays share an explicit height measured from the top. Size both roots explicitly: percentage root heights can clip the controls even when the navigation itself has the correct bounds. Use the smaller of `100vh` and `100dvh` plus the top safe area, with `100vh` as the older-browser fallback; keep bottom safe-area padding inside the bar. Browser tabs retain their existing bottom anchoring.
 

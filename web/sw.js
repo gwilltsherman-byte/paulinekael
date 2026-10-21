@@ -8,7 +8,7 @@
 //   it's served from the cache once fetched, and older builds' copies are dropped.
 const PREFIX = "kael-";
 const BASE = new URL("./", self.registration.scope);
-const SHELL = PREFIX + "shell-v22";
+const SHELL = PREFIX + "shell-v23";
 const SLOW = 3500;
 const SLOW_AFTER_SLOW = 500;   // once one request has timed out, the next ones don't wait as long
 let slowUntil = 0;           // until when (ms since 1970) the network counts as unresponsive

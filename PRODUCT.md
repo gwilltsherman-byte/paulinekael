@@ -44,4 +44,4 @@ README.md; web/; taste/; model/; tests/; scripts/smoke.mjs; current GitHub site 
 
 ## Accessibility & Inclusion
 
-User requires visible keyboard focus, semantic controls, appropriate focus in dialogs, readable contrast, mobile layouts, usable touch targets and reduced motion. Restore browser zoom. Keep dates, loading, errors and missing metadata honest.
+User requires visible keyboard focus, semantic controls, appropriate focus in dialogs, readable contrast, mobile layouts, usable touch targets and reduced motion. The page itself does not zoom on phones, so text and controls must stay readable at their own size. Keep dates, loading, errors and missing metadata honest.
