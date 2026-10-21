@@ -8,6 +8,13 @@ export const WORDMARK = Object.freeze({
   ael: "M132 128L178 0H202L248 128H224L214 98H166L156 128Z M174 76H206L190 31Z M270 0H366V22H294V51H353V73H294V106H366V128H270Z M390 0H414V106H490V128H390Z",
 });
 
+// The install icon: an admit-one ticket stub with the K cut out of it. Coordinates are
+// from the ticket's centre; the tear line has notched ends and a row of perforations.
+export const TICKET = Object.freeze({
+  width: 240, height: 352, radius: 16, notch: 22, tear: 92, holes: 9, hole: 5,
+  star: "M0 116l9 20 22 2-16 15 5 22-20-11-20 11 5-22-16-15 22-2Z",
+});
+
 export function drawWordmark(context, x, y, width) {
   context.save();
   context.translate(x, y);
