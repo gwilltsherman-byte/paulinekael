@@ -252,7 +252,6 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .gmatch { position: absolute; right: 8px; top: 8px; }
 .gt { margin-top: 10px; font-size: 14px; line-height: 1.35; font-weight: 600; }
 .gs { color: var(--muted); font-size: 12px; margin-top: 3px; }
-.gtile .logos { margin-top: 8px; }
 .opt-end { margin-left: auto; }
 .watch-bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 22px; padding: 10px 0; background: var(--bg); }
 .watch-n { flex: 1; min-width: 9em; font-size: 14px; font-weight: 600; }
