@@ -1394,8 +1394,7 @@ function renderWatch() {
   $("watch").innerHTML = items.length ? items.map((i) => `<button class="gtile${picking && watchSel.has(i) ? " sel" : ""}" data-i="${i}"${picking ? ` aria-pressed="${watchSel.has(i)}"` : ""}>
       ${poster(i, "w342")}<div class="gmatch">${matchPill(E.match(sc[i], S.sd(i)), true)}</div>
       ${picking ? `<span class="check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>` : ""}
-      <div class="gt">${esc(title(i))}</div><div class="gs">${esc([year(i), hm(runtime(i))].filter(Boolean).join(" · "))}</div>
-      ${logos(i, 5)}</button>`).join("")
+      <div class="gt">${esc(title(i))}</div><div class="gs">${esc([year(i), hm(runtime(i))].filter(Boolean).join(" · "))}</div></button>`).join("")
     : all ? `<div class="empty" style="grid-column:1/-1">None of your saved films are on your services right now.</div>`
     : `<div class="empty" style="grid-column:1/-1">Nothing saved yet.<br>Tap Save on a pick on Home to keep it here.</div>`;
   $("watch-bar").hidden = !picking;
