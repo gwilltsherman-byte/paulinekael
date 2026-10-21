@@ -1,6 +1,6 @@
 // Kael's title-card lettering. These paths are the source for SVG, icons and canvas.
 // The open joins in the K suggest a film splice and remain visible at favicon size.
-export const BRAND = Object.freeze({ ink: "#102c43", gold: "#eac55c", paper: "#f7f6ee" });
+export const BRAND = Object.freeze({ ink: "#102c43", gold: "#eac55c", paper: "#f7f6ee", white: "#ffffff", red: "#ff3b4a" });
 export const WORDMARK = Object.freeze({
   width: 490,
   height: 128,
@@ -9,11 +9,8 @@ export const WORDMARK = Object.freeze({
 });
 
 // The install icon: an admit-one ticket stub with the K cut out of it. Coordinates are
-// from the ticket's centre; the tear line has notched ends and a row of perforations.
-export const TICKET = Object.freeze({
-  width: 240, height: 352, radius: 16, notch: 22, tear: 92, holes: 9, hole: 5,
-  star: "M0 116l9 20 22 2-16 15 5 22-20-11-20 11 5-22-16-15 22-2Z",
-});
+// from the ticket's centre; the tear line has a notch at each end.
+export const TICKET = Object.freeze({ width: 240, height: 352, radius: 24, notch: 22, tear: 92 });
 
 export function drawWordmark(context, x, y, width) {
   context.save();
