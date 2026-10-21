@@ -2345,7 +2345,15 @@ function openSharedFilm() {
   return true;
 }
 
+/** Keep the page at its own size on iPhone: Safari ignores user-scalable=no in a browser
+ *  tab, so pinches are stopped here too (double-taps are by touch-action in the CSS). */
+function lockZoom() {
+  for (const name of ["gesturestart", "gesturechange"]) document.addEventListener(name, (ev) => ev.preventDefault());
+  document.addEventListener("touchmove", (ev) => { if (ev.touches.length > 1) ev.preventDefault(); }, { passive: false });
+}
+
 async function start() {
+  lockZoom();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   watchPosters();
   try {
