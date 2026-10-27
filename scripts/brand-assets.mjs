@@ -11,17 +11,11 @@ const mark = `<path fill="${BRAND.gold}" d="${WORDMARK.k}"/>`;
 const lettering = `${mark}<path fill="${BRAND.paper}" fill-rule="evenodd" d="${WORDMARK.ael}"/>`;
 const background = (w, h, fill = BRAND.ink) => `<path fill="${fill}" d="M0 0H${w}V${h}H0Z"/>`;
 const wordmark = svg(490, 128, lettering, "Kael");
-// Keep the symbol geometric and flat. A tilted 4:3 screen and one coral corner
-// distinguish this eye from a camera lens; every piece stays mask-safe.
-function cinemaEye(screen, cut) {
-  const C = APP_MARK.colors;
-  const rectangle = `<rect x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" rx="${screen.radius}"/>`;
-  return `<path fill="${C.eye}" d="${APP_MARK.eye}"/><g transform="rotate(${APP_MARK.angle} 256 256)"><defs><clipPath id="screen">${rectangle}</clipPath></defs><g clip-path="url(#screen)"><g fill="${C.screen}">${rectangle}</g><path fill="${C.cut}" d="${cut}"/></g></g>`;
-}
-const icon = svg(APP_MARK.field, APP_MARK.field, `${background(APP_MARK.field, APP_MARK.field, APP_MARK.colors.field)}${cinemaEye(APP_MARK.screen, APP_MARK.cut)}`, "Kael");
-// The same eye, with a larger screen and coral cut for the smallest browser tabs.
+const frame = `<path fill="${APP_MARK.colors.mark}" fill-rule="evenodd" d="${APP_MARK.path}"/>`;
+const icon = svg(APP_MARK.field, APP_MARK.field, `${background(APP_MARK.field, APP_MARK.field, APP_MARK.colors.field)}${frame}`, "Kael");
+// Enlarge the same frame optically for the browser tab.
 const F = APP_MARK.favicon;
-const favicon = svg(F.field, F.field, `<rect width="${F.field}" height="${F.field}" rx="${F.radius}" fill="${APP_MARK.colors.field}"/><g transform="translate(16 16) scale(${F.scale}) translate(-256 -256)">${cinemaEye(F.screen, F.cut)}</g>`, "Kael");
+const favicon = svg(F.field, F.field, `<rect width="${F.field}" height="${F.field}" rx="${F.radius}" fill="${APP_MARK.colors.field}"/><g transform="translate(16 16) scale(${F.scale}) translate(-32 -32)">${frame}</g>`, "Kael");
 const share = svg(1200, 630, `${background(1200, 630)}<g transform="translate(183.5 206.2) scale(1.7)">${lettering}</g>`, "Kael — a personal picture of cinema");
 
 async function png(source, width, height, file) {
