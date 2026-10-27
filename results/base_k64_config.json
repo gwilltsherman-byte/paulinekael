@@ -1,0 +1,14 @@
+{
+  "model": "k64",
+  "split": "val",
+  "n_users": 2000,
+  "strategies": [
+    "info_gain_ps"
+  ],
+  "prior_scale": null,
+  "noise_scale": null,
+  "ceiling": true,
+  "exact": false,
+  "by_rated": true,
+  "fair_pool": false
+}

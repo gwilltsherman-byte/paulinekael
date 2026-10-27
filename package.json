@@ -1,0 +1,12 @@
+{
+  "name": "kael",
+  "private": true,
+  "type": "module",
+  "description": "A movie recommender that quizzes you. See README.md.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

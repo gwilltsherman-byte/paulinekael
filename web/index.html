@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://image.tmdb.org; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; media-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Kael: the movie quiz that learns your taste</title>
+  <meta name="description" content="Rate a few films you've seen and Kael learns your taste, then picks movies you'll love, with a % match, trailers and where to stream them. Free, no sign-up.">
+  <link rel="canonical" href="https://gwilltsherman-byte.github.io/paulinekael/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Kael">
+  <meta property="og:url" content="https://gwilltsherman-byte.github.io/paulinekael/">
+  <meta property="og:title" content="Kael: the movie quiz that learns your taste">
+  <meta property="og:description" content="Rate a few films you've seen and Kael learns your taste, then picks movies you'll love, with a % match, trailers and where to stream them. Free, no sign-up.">
+  <meta property="og:image" content="https://gwilltsherman-byte.github.io/paulinekael/icons/kael-share.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Kael: the movie quiz that learns your taste">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Kael: the movie quiz that learns your taste">
+  <meta name="twitter:description" content="Rate a few films you've seen and Kael learns your taste, then picks movies you'll love, with a % match, trailers and where to stream them. Free, no sign-up.">
+  <meta name="twitter:image" content="https://gwilltsherman-byte.github.io/paulinekael/icons/kael-share.png">
+  <script type="application/ld+json">
+    {"@context": "https://schema.org", "@type": "WebApplication", "name": "Kael", "url": "https://gwilltsherman-byte.github.io/paulinekael/",
+     "description": "Rate a few films you've seen and Kael learns your taste, then picks movies you'll love, with a % match, trailers and where to stream them. Free, no sign-up.", "applicationCategory": "EntertainmentApplication", "operatingSystem": "Any",
+     "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}
+  </script>
+  <meta name="theme-color" content="#102c43">
+  <meta name="color-scheme" content="light">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Kael">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/kael-apple-touch.png?v=cinema-eye-v3">
+  <link rel="icon" href="icons/kael-favicon.png?v=cinema-eye-v3" type="image/png" sizes="32x32">
+  <link rel="icon" href="icons/kael-favicon.svg?v=cinema-eye-v3" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://image.tmdb.org">
+  <link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="app.css">
+  <!--preload-->
+  <link rel="modulepreload" href="engine.js">
+  <link rel="modulepreload" href="importer.js">
+  <link rel="modulepreload" href="search.js">
+  <link rel="modulepreload" href="share.js">
+  <link rel="modulepreload" href="brand.js">
+  <script type="module" src="app.js"></script>
+  <script src="install-persistence.js" defer></script>
+</head>
+<body>
+  <div id="backdrop" aria-hidden="true"></div>
+
+  <div id="loading" class="loading">
+    <div class="leader" aria-hidden="true">
+      <div class="leader-sweep"></div>
+      <svg viewBox="0 0 200 200">
+        <circle class="lr-track" cx="100" cy="100" r="92"/>
+        <circle class="lr-fill" id="loading-ring" cx="100" cy="100" r="92" pathLength="100"/>
+        <circle class="lr-inner" cx="100" cy="100" r="70"/>
+        <path class="lr-cross" d="M100 30v140M30 100h140"/>
+      </svg>
+    </div>
+    <h1 class="loading-word"><img src="brand/kael-wordmark.svg" width="490" height="128" alt="Kael"></h1>
+    <p class="tagline">A personal picture of cinema.</p>
+    <p id="loading-text" class="loading-status" role="status">Opening your film collection…</p>
+    <button id="retry" class="pill-btn" hidden>Try again</button>
+    <noscript><p class="loading-status">Kael needs JavaScript. Turn it on and reload.</p></noscript>
+  </div>
+
+  <div id="app" hidden>
+    <header class="masthead">
+      <button class="brand" data-go="home" aria-label="Kael home"><img src="brand/kael-wordmark.svg" width="490" height="128" alt=""></button>
+      <span class="brand-note">A personal picture of cinema.</span>
+      <button class="masthead-settings" data-go="settings" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg></button>
+    </header>
+    <!-- Rate: one film at a time, full screen -->
+    <section id="view-rate" class="view">
+      <header class="topbar">
+        <div class="pill" id="rate-count"></div>
+        <div class="topbar-right">
+          <button id="undo" class="pill-btn" aria-label="Change your last answer" aria-keyshortcuts="Z" hidden>
+            <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg><span id="undo-label"></span>
+          </button>
+          <button id="to-wall" class="pill-btn" aria-label="Poster wall">
+            <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>Wall
+          </button>
+        </div>
+      </header>
+      <div class="rate-layout">
+        <div class="rate-copy">
+          <h1>What did you think?</h1>
+          <p class="rate-intro">Every opinion brings your next great film a little closer.</p>
+          <div class="rate-caption"><h2 id="rate-title">Finding your first film…</h2><p id="rate-meta"></p></div>
+      <div class="actions five">
+        <button data-a="skip" class="act small" aria-keyshortcuts="S" aria-label="Haven't seen it">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg><span>Not seen</span></button>
+        <button data-a="save" class="act small save" aria-keyshortcuts="W" aria-label="Haven't seen it, save to watchlist">
+          <svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16.5l-5.5 4z"/></svg><span>Save</span></button>
+        <button data-a="disliked" class="act nope" aria-keyshortcuts="4" aria-label="Didn't like it">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg><span>Nope</span></button>
+        <button data-a="meh" class="act small meh" aria-keyshortcuts="3" aria-label="It was OK">
+          <svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg><span>OK</span></button>
+        <button data-a="liked" class="act like" aria-keyshortcuts="2" aria-label="Liked it">
+          <svg viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7.2 4.5 4.5 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/></svg><span>Liked</span></button>
+        <button data-a="loved" class="act love" aria-keyshortcuts="1" aria-label="Loved it">
+          <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg><span>Loved</span></button>
+      </div>
+          <div class="rate-learning"><span id="rate-progress">0 / 20</span><span>ratings to a sharper picture</span></div>
+          <button id="rate-ready" class="primary" data-go="home" hidden>See your picks</button>
+          <p class="keyboard-tip">Use <kbd>1</kbd>–<kbd>4</kbd> to rate · <kbd>S</kbd> to skip · <kbd>Z</kbd> to undo</p>
+        </div>
+        <div class="stage" id="rate-stage"></div>
+      </div>
+
+    </section>
+
+    <!-- Poster wall: tap everything you've seen -->
+    <section id="view-wall" class="view" hidden>
+      <header class="topbar">
+        <button id="wall-back" class="pill-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
+        <div class="pill" id="wall-count">Tap the ones you've seen</div>
+      </header>
+      <div id="wall" class="wall"></div>
+      <div class="wall-bar">
+        <button id="wall-none" class="pill-btn wide">Haven't seen any</button>
+        <button id="wall-go" class="primary">Next</button>
+      </div>
+    </section>
+
+    <!-- Home: your picks, in shelves -->
+    <section id="view-home" class="view scroll" hidden>
+      <header class="head"><div><h1>For you</h1><p class="page-intro">A world of cinema. A taste that’s yours.</p></div></header>
+      <div id="home"></div>
+    </section>
+
+    <!-- Library: your films -->
+    <section id="view-lib" class="view scroll" hidden>
+      <header class="head"><div><h1>Your library</h1><p class="page-intro">The films you’re keeping, and the ones that stayed with you.</p></div></header>
+      <div class="seg lib-seg" id="lib-tabs" role="tablist">
+        <button data-lib="watch" role="tab">Watchlist</button>
+        <button data-lib="diary" role="tab">Diary</button>
+        <button data-lib="rated" role="tab">Ratings</button>
+      </div>
+      <div id="lib-watch">
+        <div class="opts sorts" id="watch-sort" hidden>
+          <button class="opt" data-sort="match">Best match</button>
+          <button class="opt" data-sort="short">Shortest</button>
+          <button class="opt" data-sort="new">Newest</button>
+          <button class="opt" data-sort="mine">On my services</button>
+          <button class="opt opt-end" data-select>Select</button>
+        </div>
+        <div class="watch-bar" id="watch-bar" hidden>
+          <span class="watch-n" id="watch-n" aria-live="polite"></span>
+          <button class="pill-btn" data-wsel="all">Select all</button>
+          <button class="pill-btn remove" data-wsel="remove">Remove</button>
+          <button class="pill-btn" data-wsel="done">Cancel</button>
+        </div>
+        <div id="watch" class="grid"></div>
+      </div>
+      <div id="lib-diary" hidden>
+        <div id="diary"></div>
+        <button id="more-diary" class="pill-btn wide" hidden>Show all</button>
+      </div>
+      <div id="lib-rated" hidden>
+        <div class="opts sorts" id="rated-filter"></div>
+        <ol id="mine" class="rows"></ol>
+        <button id="more-mine" class="pill-btn wide" hidden>Show all</button>
+      </div>
+    </section>
+
+    <!-- Search: find a film, or browse -->
+    <section id="view-search" class="view scroll" hidden>
+      <header class="head"><div><h1>Find your next film</h1><p class="page-intro">Follow a title, a mood, or a little curiosity.</p></div></header>
+      <input id="q" type="search" aria-label="Search films" placeholder="Search for a film, like Heat or Amélie" autocomplete="off" autocorrect="off" spellcheck="false">
+      <div id="browse"></div>
+      <ol id="results" class="rows"></ol>
+    </section>
+
+    <!-- You: your taste -->
+    <section id="view-me" class="view scroll" hidden>
+      <header class="head"><div><h1>Your taste</h1><p class="page-intro">A portrait, one film at a time.</p></div>
+        <div class="head-actions">
+          <button id="taste-card" class="pill-btn" aria-label="Make your taste card">
+            <svg viewBox="0 0 24 24"><rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M8 8.5h8M8 12h5"/><circle cx="15.5" cy="16" r="1.5"/></svg>Taste card
+          </button>
+          <button class="icon-round" data-go="settings" aria-label="Settings">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          </button>
+        </div>
+      </header>
+      <div class="stats" id="stats"></div>
+
+      <div class="panel">
+        <h2>Your taste</h2>
+        <div id="scales"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Your film life</h2>
+        <div id="life"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Watch together</h2>
+        <p>Send a friend your link. When they open it and rate a few films, you both get picks you'd each enjoy. When they send you theirs, it shows up here.</p>
+        <button id="share" class="primary">Share my taste</button>
+        <div id="friends"></div>
+      </div>
+
+      <button class="link-row" data-go="settings">
+        <span><b>Settings</b><small>Streaming services, import, backup</small></span>
+        <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </section>
+
+    <!-- Settings -->
+    <section id="view-settings" class="view scroll" hidden>
+      <header class="head">
+        <div class="head-left">
+          <button class="icon-round" data-go="me" aria-label="Back to your taste"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <h1>Settings</h1>
+        </div>
+      </header>
+
+      <div class="panel">
+        <h2>My streaming services</h2>
+        <p>Pick yours to see what you can watch right now, and filter to only those.</p>
+        <div id="services" class="services"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Import your ratings</h2>
+        <p>From Letterboxd (export .zip, including your diary) or IMDb (ratings .csv). The more Kael knows about what you've watched, the better your picks.</p>
+        <label class="primary file-btn">
+          <input type="file" id="import-file" accept=".zip,.csv,text/csv,application/zip">Choose export file
+        </label>
+        <p id="import-result" class="import-result" hidden></p>
+        <details>
+          <summary>How to export</summary>
+          <p><b>Letterboxd:</b> letterboxd.com → Settings → Import &amp; Export → Export your data, then choose the .zip here.</p>
+          <p><b>IMDb:</b> imdb.com → Your Ratings → ⋯ → Export, then choose the .csv here.</p>
+        </details>
+      </div>
+
+      <div class="panel">
+        <h2>Backup</h2>
+        <p>Your ratings, watchlist, diary and settings are saved on this device only. Save a backup before you delete the app or switch devices, then restore it there.</p>
+        <div class="backup-actions">
+          <button id="backup-save" class="primary">Save a backup</button>
+          <label class="btn glass file-btn">Restore<input type="file" id="backup-file" accept=".json,application/json"></label>
+        </div>
+        <p id="backup-note" class="backup-note"></p>
+      </div>
+
+      <div class="me-actions">
+        <button id="unhide" class="pill-btn" hidden></button>
+        <button id="reset" class="danger">Start over</button>
+      </div>
+      <p class="fine">Film data: <a href="https://grouplens.org/datasets/movielens/" target="_blank" rel="noopener">MovieLens</a>, <a href="https://developer.imdb.com/non-commercial-datasets/" target="_blank" rel="noopener">IMDb</a> and <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a>. Posters, trailers and streaming info via <a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a>; streaming data by <a href="https://www.justwatch.com" target="_blank" rel="noopener">JustWatch</a>. This product uses the TMDB API but is not endorsed or certified by TMDB. For personal, non-commercial use. <span id="updated"></span></p>
+    </section>
+
+    <nav class="tabbar" aria-label="Main">
+      <button data-view="home" aria-label="For you">
+        <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15v-6h-6v6H5.5A1.5 1.5 0 0 1 4 19z"/></svg><span>For you</span>
+      </button>
+      <button data-view="rate" aria-label="Rate">
+        <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg><span>Rate</span>
+      </button>
+      <button data-view="search" aria-label="Search">
+        <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/></svg><span>Search</span>
+      </button>
+      <button data-view="lib" aria-label="Library">
+        <svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16.5l-5.5 4z"/></svg><span>Library</span><b id="watch-count" class="count" hidden></b>
+      </button>
+      <button data-view="me" aria-label="Your taste">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20c1.2-3.6 4.1-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg><span>Your taste</span>
+      </button>
+    </nav>
+
+    <div id="film" class="film" role="dialog" aria-modal="true" aria-label="Film" hidden></div>
+    <div id="sheet" class="sheet" hidden><div id="sheet-card" class="sheet-card" role="dialog" aria-modal="true"></div></div>
+    <div id="toast" class="toast" role="status" hidden></div>
+  </div>
+</body>
+</html>
