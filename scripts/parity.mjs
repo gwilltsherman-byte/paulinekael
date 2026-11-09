@@ -10,7 +10,7 @@ const e = new Engine(json("meta.json"), json("films.json"), bin("vectors.bin", I
   bin("bias.bin", Float32Array), bin("flags.bin", Uint8Array), bin("seen.bin", Int8Array));
 const want = JSON.parse(readFileSync(new URL("../data/processed/parity_expected.json", import.meta.url)));
 
-const s = new Session(e, want.answers.map(([id, a]) => [e.byImdb.get(id), a]));
+const s = new Session(e, want.answers.map(([id, a]) => [e.byImdb.get(id), a]), [], null, (want.favs ?? []).map((id) => e.byImdb.get(id)));
 const sc = s.scores();
 const order = [...sc.keys()].sort((a, b) => sc[b] - sc[a]).slice(0, 10);
 const got = order.map((i) => e.films.imdb[i]);

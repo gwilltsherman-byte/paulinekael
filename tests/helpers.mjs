@@ -7,7 +7,7 @@ export function rng(seed = 1) {
   return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 2 ** 32);
 }
 
-export function makeEngine({ n = 400, k = 6, pool = 120, seed = 7 } = {}) {
+export function makeEngine({ n = 400, k = 6, pool = 120, seed = 7, meta: extra = {} } = {}) {
   const r = rng(seed), d = k + 1;
   const vec = Int8Array.from({ length: n * k }, () => Math.round((r() * 2 - 1) * 127));
   const bias = Float32Array.from({ length: n }, () => (r() - 0.5) * 1.2);
@@ -26,6 +26,7 @@ export function makeEngine({ n = 400, k = 6, pool = 120, seed = 7 } = {}) {
     prior_mean: Array.from({ length: d }, () => (r() - 0.5) * 0.2), prior_cov: cov,
     seen_p: Array.from({ length: pool }, () => 0.05 + r() * 0.5), seen_scale: 0.004, seen_ridge: 0.02,
     content_var: 0.3, match: { threshold: 3.75, tau: 0.68, shift: 0.16 }, genres: [], scales: [], build: "test",
+    ...extra,
   };
   const films = { imdb: Array.from({ length: n }, (_, i) => 1000 + i), title: Array.from({ length: n }, (_, i) => `Film ${i}`),
     year: Array.from({ length: n }, () => 2000), votes: Array.from({ length: n }, () => 5000), genres: Array.from({ length: n }, () => 0),

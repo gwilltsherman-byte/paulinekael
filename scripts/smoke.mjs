@@ -28,6 +28,8 @@ check(Number.isInteger(n) && n >= MIN_FILMS, `only ${n} films (expected at least
 check(typeof meta.build === "string" && meta.build.length >= 8, "meta.json has no build stamp");
 check(meta.match && meta.match.tau > 0, "meta.json has no match calibration");
 check(meta.scales.length > 0 && meta.scales.every((s) => s.d.length === k), "taste scales missing or the wrong size");
+check(meta.fav_lift == null || (meta.fav_ref?.length === k + 1 && meta.fav_ref[k] === 1 && Number.isFinite(meta.fav_ref_b)),
+  "favourite settings (fav_ref) missing or the wrong size");
 for (const c of ["title", "year", "genres", "imdb", "votes", "score"]) check(films[c]?.length === n, `films.${c} has ${films[c]?.length} entries, not ${n}`);
 check(statSync(dir + "vectors.bin").size === n * k, "vectors.bin is not n x k bytes");
 check(statSync(dir + "bias.bin").size === n * 4, "bias.bin is not n float32s");

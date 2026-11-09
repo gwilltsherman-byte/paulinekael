@@ -319,10 +319,20 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .dir-films .poster + .poster { margin-left: -10px; }
 .dir b { display: block; font-size: 14px; }
 .dir span { color: var(--muted); font-size: 12px; }
-.fav-row { display: flex; gap: 14px; overflow-x: auto; padding: 4px 0 10px; }
+.fav-row { display: flex; align-items: flex-start; gap: 14px; overflow-x: auto; padding: 4px 0 10px; }
 .fav-tile { flex: none; width: 110px; text-align: left; }
 .fav-tile .poster { width: 100%; }
 .fav-tile span { display: block; font-size: 12px; margin-top: 7px; }
+/* All-time favourites: numbered, with a dashed slot for each one still free. */
+.fav-tile b { font: 650 13px/1 var(--display); margin-right: 5px; color: #8a6818; }
+.fav-free span:last-child { color: var(--muted); }
+.fav-tile .fav-plus { display: grid; place-items: center; aspect-ratio: 2/3; margin: 0; border: 1px dashed var(--line-2); border-radius: 3px; font-size: 30px; font-weight: 300; color: var(--muted); }
+.fav-free:hover .fav-plus { border-color: var(--muted); }
+.fav-swap { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+.fav-swap button { text-align: left; font-size: 12px; }
+.fav-swap button span { display: block; margin-top: 6px; }
+.fav-mark { display: inline-flex; vertical-align: -3px; margin-left: 6px; color: #8a6818; }
+.fav-mark svg { width: 16px; height: 16px; }
 .month { margin: 26px 0 10px; color: var(--muted); font-size: 13px; font-weight: 600; }
 .entry { display: flex; align-items: center; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); }
 .entry .day { width: 32px; font: 550 25px/1 var(--display); color: var(--muted); }

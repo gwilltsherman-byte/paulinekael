@@ -169,3 +169,67 @@ test("the maintained uncertainties still match a recompute when unseen answers u
   const rebuilt = new Session(U, [...s.answers], [], 5);
   assert.deepEqual([...rebuilt.mean], [...s.mean]);
 });
+
+// Favourites: an engine whose meta says how a favourite counts, with "your average film"
+// taken as the mean over these made-up films.
+const FAV_REF = (() => {
+  const ref = new Float64Array(E.d);
+  for (let i = 0; i < E.n; i++) E.x(i).forEach((v, q) => { ref[q] += v / E.n; });
+  return [...ref];
+})();
+const FAV_REF_B = E.bias.reduce((t, b) => t + b, 0) / E.n;
+const EF = makeEngine({ meta: { fav_lift: 1.5, fav_noise: 0.8, fav_ref: FAV_REF, fav_ref_b: FAV_REF_B } });
+const FAV_LIST = [[3, "loved"], [10, "liked"], [25, "loved"], [40, "disliked"], [77, 5], [150, "meh"], [9, null]];
+const FAVS = [3, 77];
+
+/** What film j says, as the model defines it (taste.quiz.Session.observation). */
+function expectedObs(e, j, a, favs) {
+  const x = e.x(j);
+  if (!favs.includes(j)) return { x, t: e.stars(a) - e.mu - e.bias[j], noise: e.noise };
+  return { x: x.map((v, q) => v - FAV_REF[q]), t: 1.5 - (e.bias[j] - FAV_REF_B), noise: e.noise * 0.8 };
+}
+
+test("a favourite counts as sitting fav_lift stars above your average film, in the posterior", () => {
+  const s = new Session(EF, FAV_LIST, [], null, FAVS), d = EF.d;
+  const P = new Float64Array(d * d), rhs = new Float64Array(d);
+  const inv = Array.from({ length: d }, (_, c) => cholSolve(EF.priorCov, d, Array.from({ length: d }, (_, q) => (q === c ? 1 : 0))));
+  for (let a = 0; a < d; a++) for (let b = 0; b < d; b++) P[a * d + b] = inv[b][a];
+  for (let a = 0; a < d; a++) for (let b = 0; b < d; b++) rhs[a] += P[a * d + b] * EF.priorMean[b];
+  for (const [j, a] of FAV_LIST) {
+    if (a == null) continue;
+    const { x, t, noise } = expectedObs(EF, j, a, FAVS);
+    for (let u = 0; u < d; u++) { rhs[u] += (x[u] * t) / noise; for (let v = 0; v < d; v++) P[u * d + v] += (x[u] * x[v]) / noise; }
+  }
+  const want = cholSolve(P, d, rhs);
+  for (let u = 0; u < d; u++) assert.ok(Math.abs(s.mean[u] - want[u]) < 1e-9, `dim ${u}: ${s.mean[u]} vs ${want[u]}`);
+  const plain = new Session(EF, FAV_LIST);
+  assert.ok(plain.mean.some((v, u) => Math.abs(v - s.mean[u]) > 1e-3), "favourites change the profile");
+});
+
+test("a favourite says nothing about how generous a rater you are", () => {
+  const s = new Session(EF, FAV_LIST, [], null, FAVS);
+  for (const j of FAVS) assert.ok(Math.abs(s.obs(j, "loved").x[EF.k]) < 1e-12);
+  assert.equal(s.obs(10, "liked").x[EF.k], 1);
+});
+
+test("without fav_lift (an older build), favourites are just their ratings", () => {
+  const a = new Session(E, FAV_LIST, [], null, FAVS), b = new Session(E, FAV_LIST);
+  for (let u = 0; u < E.d; u++) assert.equal(a.mean[u], b.mean[u]);
+});
+
+test("explanations weigh a favourite the way the profile does", () => {
+  const s = new Session(EF, FAV_LIST, [], null, FAVS), k = EF.k, d = EF.d, films = [0, 1, 2, 50, 200, 300];
+  const push = s.maxPush(films);
+  films.forEach((i, n) => {
+    const xi = EF.x(i);
+    let best = 0;
+    for (const [j, a] of FAV_LIST) {
+      if (a == null) continue;
+      const { x, t, noise } = expectedObs(EF, j, a, FAVS);
+      let c = 0;
+      for (let q = 0; q < k; q++) { let Sx = 0; for (let b = 0; b < d; b++) Sx += s.cov[q * d + b] * x[b]; c += xi[q] * Sx; }
+      best = Math.max(best, (c * t) / noise);
+    }
+    assert.ok(Math.abs(push[n] - best) < 1e-9, `film ${i}: ${push[n]} vs ${best}`);
+  });
+});

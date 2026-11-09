@@ -14,6 +14,7 @@ const K = {
   friends: "mt.friends.v1",  // [{id, name, rated, code, added}, ...] shared tastes
   queue: "mt.queue.v1",      // [imdbId, ...] poster-wall films still to rate
   diary: "mt.diary.v1",      // [[imdbId, "YYYY-MM-DD", label], ...] films you logged watching
+  favs: "mt.favs.v1",        // [imdbId, ...] all-time favourites, your #1 first (at most FAVS_MAX)
   prefs: "mt.prefs.v1",
 };
 const LABELS = { loved: "Loved it", liked: "Liked it", meh: "It was OK", disliked: "Didn't like it" };
@@ -31,6 +32,7 @@ const RICON = {
 };
 const IMG = "https://image.tmdb.org/t/p/";
 const GOAL = 20;        // ratings for sharp recommendations
+const FAVS_MAX = 5;     // all-time favourites: few, so each one really is a top film
 const WALL = 12;        // films per poster wall
 const SKIP_DAYS = 90;
 const SKIP_MS = SKIP_DAYS * 24 * 60 * 60 * 1000;
@@ -103,6 +105,7 @@ const clean = {
     && Number.isSafeInteger(e[1]) && e[1] > 0 && e[1] <= 8640000000000000).map(([id, until]) => [id, until]),
   answers: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0]) && isAnswer(e[1] ?? null)).map(([id, a]) => [id, a ?? null]),
   diary: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0]) && isDay(e[1]) && isAnswer(e[2] ?? null)).map(([id, d, a]) => [id, d, a ?? null]),
+  favs: (v) => [...new Set(asList(v).filter(isId))].slice(0, FAVS_MAX),
   friends: (v) => asList(v).filter((f) => f && typeof f === "object" && typeof f.id === "string" && typeof f.name === "string"
     && typeof f.code === "string" && /^[A-Za-z0-9_-]+$/.test(f.code)).map((f) => ({ ...f, rated: Number(f.rated) || 0 })),
   prefs: (v) => {
@@ -169,6 +172,7 @@ let watch = clean.ids(store.get(K.watch, []));
 let seenOnly = new Set(clean.ids(store.get(K.seen, [])));
 let friends = clean.friends(store.get(K.friends, []));
 let diary = clean.diary(store.get(K.diary, []));
+let favs = clean.favs(store.get(K.favs, []));
 let prefs = {
   list: "best", era: "any", genre: -1, deep: false, maxRuntime: 0, streamOnly: false,
   services: [], friend: null, name: "", onboarded: false,
@@ -320,8 +324,75 @@ function logos(i, max = 4) {
 }
 
 function rebuild() {
+  // A favourite is a film you loved: one rated lower since, or no longer rated, stops being one.
+  const loved = new Set(answers.filter(([, a]) => isLoved(a)).map(([id]) => id));
+  if (favs.some((id) => !loved.has(id))) {
+    favs = favs.filter((id) => loved.has(id));
+    store.set(K.favs, favs);
+  }
   const list = answers.map(([id, a]) => [idx(id), a]).filter(([i]) => i !== undefined);
-  S = new Session(E, list, [...seenOnly].map(idx).filter((i) => i !== undefined), prefs.seed);
+  S = new Session(E, list, [...seenOnly].map(idx).filter((i) => i !== undefined), prefs.seed,
+    favs.map(idx).filter((i) => i !== undefined));
+}
+
+const isLoved = (a) => a != null && E.stars(a) >= 4.5;
+const isFav = (i) => favs.includes(imdbOf(i));
+
+/** Save the favourites and rebuild your profile with them (they shape it: Session.obs). */
+function saveFavs() {
+  store.set(K.favs, favs);
+  rebuild();
+  markDirty();
+}
+
+/** Make a rating change that may take film i off your favourites (a favourite is a film
+ *  you loved). lost: it did; restore(): puts the favourites back, for Undo. */
+function guardFavs(change) {
+  const before = favs.slice();
+  change();
+  const lost = favs.length < before.length;
+  return { lost, restore: () => { if (lost) { favs = before; saveFavs(); } } };
+}
+
+/** Make film i one of your all-time favourites, or stop it being one. A favourite is a film
+ *  you loved, so it's rated Loved it if it wasn't. When you have FAVS_MAX already, you pick
+ *  one to swap out. */
+async function toggleFav(i) {
+  const id = imdbOf(i), before = favs.slice(), was = S.answers.get(i);
+  const undo = (rerated) => () => {
+    if (rerated) setAnswer(i, was);
+    favs = before;
+    saveFavs();
+    ratingChanged(i);
+  };
+  if (favs.includes(id)) {
+    favs = favs.filter((x) => x !== id);
+    saveFavs();
+    toast(`${title(i)} is no longer a favourite`, undo(false));
+    return ratingChanged(i);
+  }
+  if (favs.length >= FAVS_MAX) {
+    const out = await swapFav(i);
+    if (out == null) return;
+    favs = favs.map((x) => (x === out ? id : x));
+  } else favs = [...favs, id];
+  const rerated = !isLoved(was);
+  if (rerated) setAnswer(i, "loved");
+  saveFavs();
+  toast(rerated ? `${title(i)} is a favourite, rated Loved it` : `${title(i)} is a favourite`, undo(rerated));
+  ratingChanged(i);
+}
+
+/** Your favourites are full: choose one to swap for film i. Resolves its IMDb id, or null. */
+async function swapFav(i) {
+  const x = await openSheet(`<h3>Your top ${FAVS_MAX} is full</h3>
+    <p class="sub">Choose one to swap for ${esc(title(i))}.</p>
+    <div class="fav-swap">${favs.map((id) => {
+      const j = idx(id);
+      return `<button data-x="fav:${id}">${j === undefined ? "" : poster(j, "w185")}<span>${esc(j === undefined ? "A film no longer listed" : title(j))}</span></button>`;
+    }).join("")}</div>
+    <button class="cancel" data-x="close">Cancel</button>`);
+  return x?.startsWith("fav:") ? Number(x.slice(4)) : null;
 }
 
 let persistAsked = false;
@@ -518,15 +589,16 @@ async function rateFilm(i) {
   const r = await askRating(i, { when: current ? "none" : "today", current });
   if (!r || (r.label && r.label === current && !r.date)) return false;
   const logged = diary.length;
-  setAnswer(i, r.remove ? undefined : r.label);
+  const g = guardFavs(() => setAnswer(i, r.remove ? undefined : r.label));
   if (r.date) {
     diary.push([imdbOf(i), r.date, r.label]);
     store.set(K.diary, diary);
   }
-  toast(r.remove ? `Removed your rating of ${title(i)}`
+  toast((r.remove ? `Removed your rating of ${title(i)}`
     : current && r.label !== current ? `Changed to ${SHORT[r.label]}`
-    : r.date ? `Added ${title(i)} to your diary` : `Rated ${title(i)}`, () => {
+    : r.date ? `Added ${title(i)} to your diary` : `Rated ${title(i)}`) + (g.lost ? ". No longer a favourite" : ""), () => {
     setAnswer(i, was);
+    g.restore();
     if (diary.length > logged) { diary.splice(logged); store.set(K.diary, diary); }
     ratingChanged(i);
   });
@@ -539,8 +611,8 @@ async function rateFilm(i) {
 function setRating(i, label) {
   const was = S.answers.get(i);
   if (was != null && labelOf(was) === label) return rateFilm(i);
-  setAnswer(i, label);
-  toast(`Changed to ${SHORT[label]}`, () => { setAnswer(i, was); ratingChanged(i); });
+  const g = guardFavs(() => setAnswer(i, label));
+  toast(`Changed to ${SHORT[label]}${g.lost ? ". No longer a favourite" : ""}`, () => { setAnswer(i, was); g.restore(); ratingChanged(i); });
   ratingChanged(i);
 }
 
@@ -599,7 +671,7 @@ function trailerFrame(i) {
 }
 
 function renderFilm(i, play) {
-  const sc = S.scores(), sd = S.sd(i), rated = S.answers.get(i), saved = watch.includes(imdbOf(i));
+  const sc = S.scores(), sd = S.sd(i), rated = S.answers.get(i), saved = watch.includes(imdbOf(i)), fav = isFav(i);
   const label = rated != null ? labelOf(rated) : null;
   const why = because(S.support(i, 8));
   const mine = myServices(), keys = servicesOf(i);
@@ -610,7 +682,8 @@ function renderFilm(i, play) {
   const meta = [year(i), hm(runtime(i)), sc10 ? `IMDb ${(sc10 / 10).toFixed(1)}` : ""].filter(Boolean).join(" · ");
   const more = moreLike(i, sc);
   filmSc = sc;
-  const btn = (f, icon, text, cls = "") => `<button class="fa${cls}" data-f="${f}"${f === "save" ? ` aria-pressed="${saved}"` : ""}>${icon}<span>${text}</span></button>`;
+  const pressed = { save: saved, fav };
+  const btn = (f, icon, text, cls = "") => `<button class="fa${cls}" data-f="${f}"${f in pressed ? ` aria-pressed="${pressed[f]}"` : ""}>${icon}<span>${text}</span></button>`;
   $("film").innerHTML = `
     <div class="film-hero${play ? " playing" : ""}" id="film-hero">
       ${play ? trailerFrame(i) : `${posterUrl(i, "w342") ? `<img class="film-blur" src="${posterUrl(i, "w342")}" alt="">` : ""}<div class="film-hero-shade"></div>`}
@@ -636,6 +709,7 @@ function renderFilm(i, play) {
         ${trailer(i) ? btn("trailer", ICON.play, "Trailer") : ""}
         ${label ? "" : btn("save", ICON.save, saved ? "Saved" : "Save", saved ? " on" : "")}
         ${btn("rate", label ? `<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>` : FICON.eye, label ? "Change rating" : "Seen it")}
+        ${label ? btn("fav", ICON.crown, "Favourite", fav ? " on" : "") : ""}
         ${label || saved ? "" : btn("hide", FICON.nope, "Not for me")}
       </div>
       <section class="film-sec" id="film-about"><div class="skel"></div><div class="skel short"></div></section>
@@ -768,6 +842,7 @@ async function filmAction(f, ev) {
     return;
   }
   if (f === "rate") rateFilm(i);
+  if (f === "fav") toggleFav(i);
 }
 
 // ---------------------------------------------------------------- rate
@@ -1116,11 +1191,14 @@ function buildHome() {
     add(`For you and ${friend.name}`, pick(both, k), { sub: "Films you'd both enjoy" });
   }
 
-  // "Because you loved ___": your most recent loves (or likes), up to two that differ.
+  // "Because you loved ___": one of your favourites (a different one each day), then your
+  // most recent loves (or likes), up to two that differ.
   const fav = (min) => answers.filter(([, a]) => a != null && E.stars(a) >= min).map(([id]) => idx(id))
     .filter((i) => i !== undefined).reverse();
+  const favTop = favs.map(idx).filter((i) => i !== undefined);
+  const today = favTop.length ? [favTop[Math.floor(Date.now() / 864e5) % favTop.length]] : [];
   const anchors = [];
-  for (const j of [...fav(4.5), ...fav(4)]) {
+  for (const j of [...today, ...fav(4.5), ...fav(4)]) {
     const dj = dir(j);
     if (anchors.every((a) => dotDir(a.d, dj) < 0.5)) anchors.push({ j, d: dj });
     if (anchors.length === 2) break;
@@ -1130,7 +1208,7 @@ function buildHome() {
     const sim = new Map(items.map((i) => [i, dotDir(dir(i), d)]));
     return [j, pick(items, sim, { vary: false })];
   });
-  if (alike[0]) add(`Because you ${E.stars(S.answers.get(alike[0][0])) >= 4.5 ? "loved" : "liked"} ${title(alike[0][0])}`, alike[0][1], { because: alike[0][0] });
+  if (alike[0]) add(`${becauseOf(alike[0][0])} ${title(alike[0][0])}`, alike[0][1], { because: alike[0][0] });
 
   add("New releases for you", pick(where((i) => f.year[i] >= now - 1 && f.votes[i] >= 300)));
 
@@ -1144,7 +1222,7 @@ function buildHome() {
   if (genresLiked[0] !== undefined) genreShelf(genresLiked[0]);
 
   add("Hidden gems", pick(where((i) => f.votes[i] < 15000 && sc[i] >= 3.8)), { sub: "Less-known films we think you'll love" });
-  if (alike[1]) add(`Because you ${E.stars(S.answers.get(alike[1][0])) >= 4.5 ? "loved" : "liked"} ${title(alike[1][0])}`, alike[1][1], { because: alike[1][0] });
+  if (alike[1]) add(`${becauseOf(alike[1][0])} ${title(alike[1][0])}`, alike[1][1], { because: alike[1][0] });
 
   const tasteItems = where((i) => f.votes[i] >= 2000 && sc[i] >= 3.75);
   const tasteKey = new Map(tasteItems.map((i) => [i, lf[i] - pen.get(i)]));
@@ -1192,6 +1270,7 @@ const ICON = {
   down: `<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>`,
   edit: `<svg viewBox="0 0 24 24"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="M13.5 6.5l4 4"/></svg>`,
   later: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>`,
+  crown: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18.5h14"/><path d="M5.5 15.5 4 7.5l4.5 3.5L12 5l3.5 6L20 7.5l-1.5 8z"/></svg>`,
 };
 
 function heroCard(i) {
@@ -1224,9 +1303,12 @@ function tile(i, withMatch = true, sc = home?.sc, eager = false) {
     <span class="tt">${esc(title(i))}</span><span class="ts">${esc([year(i), hm(runtime(i))].filter(Boolean).join(" · "))}</span></button>`;
 }
 
+/** The words before the film a "more like it" shelf follows from. */
+const becauseOf = (j) => (isFav(j) ? "More like your favourite" : `Because you ${E.stars(S.answers.get(j)) >= 4.5 ? "loved" : "liked"}`);
+
 function shelfHtml(sh, withMatch = true) {
   const head = sh.because !== undefined
-    ? `<div class="because">${poster(sh.because, "w92")}<div><small>Because you ${E.stars(S.answers.get(sh.because)) >= 4.5 ? "loved" : "liked"}</small><h2>${esc(title(sh.because))}</h2></div></div>`
+    ? `<div class="because">${poster(sh.because, "w92")}<div><small>${becauseOf(sh.because)}</small><h2>${esc(title(sh.because))}</h2></div></div>`
     : `<div><h2>${esc(sh.title)}</h2>${sh.sub ? `<p>${esc(sh.sub)}</p>` : ""}</div>`;
   return `<section class="shelf"><div class="shelf-head">${head}</div>
     <div class="shelf-row">${sh.items.map((i, k) => tile(i, withMatch, home?.sc, k < 6)).join("")}</div></section>`;
@@ -1474,8 +1556,9 @@ function warmSearch() {
 function filmRow(i, sc, { scale = false } = {}) {
   const a = S.answers.get(i), l = a != null ? labelOf(a) : null;
   if (l && scale) {
+    const crown = isFav(i) ? `<span class="fav-mark" role="img" aria-label="All-time favourite">${ICON.crown}</span>` : "";
     return `<li class="row" data-i="${i}">${poster(i, "w154")}
-      <div class="row-main"><button class="row-title">${esc(title(i))}</button><div class="row-sub">${esc(subline(i))}</div>
+      <div class="row-main"><button class="row-title">${esc(title(i))}</button>${crown}<div class="row-sub">${esc(subline(i))}</div>
         <div class="rate-pick" role="group" aria-label="Your rating">${SCALE.map((k) =>
           `<button data-set="${k}" style="--rc:${COLORS[k]}" aria-pressed="${k === l}" aria-label="${LABELS[k]}">${RICON[k]}<span>${SHORT[k]}</span></button>`).join("")}</div>
       </div></li>`;
@@ -1616,6 +1699,7 @@ function renderMe() {
   const logged = diary.filter(([, d]) => d.startsWith(thisYear)).length;
   $("stats").innerHTML = [[S.rated, "rated"], [loved, "loved"], [logged, `watched in ${thisYear}`]]
     .map(([v, l]) => `<div class="stat"><strong>${v.toLocaleString()}</strong><span>${l}</span></div>`).join("");
+  renderFavs();
   renderScales();
   renderLife();
   renderFriends();
@@ -1629,6 +1713,18 @@ function renderSettings() {
   $("unhide").textContent = `Unhide ${hidden.size} film${hidden.size === 1 ? "" : "s"}`;
   $("updated").textContent = `Film data updated ${E.meta.updated}.`;
   setBackdrop(-1);
+}
+
+/** Your all-time favourites, #1 first, and a free slot for each one still to choose. */
+function renderFavs() {
+  const tiles = favs.map((id, n) => {
+    const i = idx(id);
+    return i === undefined ? "" : `<button class="fav-tile" data-i="${i}" aria-label="Number ${n + 1}: ${esc(title(i))}">
+      ${poster(i, "w185")}<span><b>${n + 1}</b>${esc(title(i))}</span></button>`;
+  });
+  const free = Array.from({ length: FAVS_MAX - favs.length }, () =>
+    `<button class="fav-tile fav-free" data-fav-add><span class="fav-plus" aria-hidden="true">+</span><span>Add a favourite</span></button>`);
+  replaceContent($("favs"), `<div class="fav-row">${[...tiles, ...free].join("")}</div>`);
 }
 
 // ---------------------------------------------------------------- your film life
@@ -1694,8 +1790,8 @@ function renderLife() {
   const cols = decs.map(([d, v]) => `<button class="col${d === fav ? " fav" : ""}" data-dec="${d}" aria-label="${esc(decCaption(d))}">
       <span class="cf" style="height:${Math.max(4, (100 * v[0]) / maxD)}%"></span><span class="cl">${decLabel(d)}</span></button>`).join("");
 
-  // Favourites: films you loved, newest first.
-  const favs = rated.filter(([, st]) => st >= 4.5).map(([i]) => i).slice(0, 12);
+  // Films you loved, newest first.
+  const loves = rated.filter(([, st]) => st >= 4.5).map(([i]) => i).slice(0, 12);
 
   el.innerHTML = `
     <h3 class="life-h">Genres you watch most</h3><div class="bars">${genreRows}</div>
@@ -1703,7 +1799,7 @@ function renderLife() {
     <p class="life-cap" id="dec-cap">${fav !== undefined ? favCaption(fav) : "Tap a decade"}</p>
     <div class="cols" role="group" aria-label="Films you've rated by decade">${cols}</div>
     <div id="life-dirs"></div>
-    ${favs.length ? `<h3 class="life-h">Films you loved</h3><div class="fav-row">${favs.map((i) => `<button class="fav-tile" data-i="${i}">${poster(i, "w185")}<span>${esc(title(i))}</span></button>`).join("")}</div>` : ""}`;
+    ${loves.length ? `<h3 class="life-h">Films you loved</h3><div class="fav-row">${loves.map((i) => `<button class="fav-tile" data-i="${i}">${poster(i, "w185")}<span>${esc(title(i))}</span></button>`).join("")}</div>` : ""}`;
 
   directors().then((D) => {
     const box = $("life-dirs");
@@ -1779,8 +1875,9 @@ function tasteSummary() {
     const { z } = S.scalePosition(sc);
     return Math.abs(z) >= 0.35 ? (z > 0 ? sc.right : sc.left) : null;
   }).filter(Boolean);
-  const favs = rated.filter(([, st]) => st >= 4.5).map(([i]) => i).slice(0, 4);
-  return { genresTop, decade, leanings, favs, rated: rated.length, loved: rated.filter(([, st]) => st >= 4.5).length };
+  const top = favs.map(idx).filter((i) => i !== undefined);
+  const picks = [...top, ...rated.filter(([i, st]) => st >= 4.5 && !top.includes(i)).map(([i]) => i)].slice(0, 4);
+  return { genresTop, decade, leanings, favs: picks, rated: rated.length, loved: rated.filter(([, st]) => st >= 4.5).length };
 }
 
 async function drawTasteCard(withPosters) {
@@ -1993,7 +2090,7 @@ async function importFile(file) {
 
 // A backup is every stored key (K), as saved: {app, version, saved, data: {key: value}}.
 const CLEAN = { [K.answers]: clean.answers, [K.hidden]: clean.ids, [K.snoozed]: clean.snoozed, [K.watch]: clean.ids, [K.seen]: clean.ids,
-  [K.friends]: clean.friends, [K.queue]: clean.ids, [K.diary]: clean.diary };
+  [K.friends]: clean.friends, [K.queue]: clean.ids, [K.diary]: clean.diary, [K.favs]: clean.favs };
 
 function renderBackup() {
   const n = answers.filter(([, a]) => a != null).length;
@@ -2074,6 +2171,7 @@ async function restoreBackup(file) {
     store.set(K.watch, union(watch, list(K.watch)).filter((id) => !ratedIds.has(id)));
     store.set(K.diary, union(diary, list(K.diary), ([id, date]) => `${id}|${date}`));
     store.set(K.friends, union(friends, list(K.friends), (f) => f.id));
+    store.set(K.favs, union(favs, list(K.favs)).slice(0, FAVS_MAX));   // ones not loved here drop out on reload
     const theirs = clean.prefs(d[K.prefs]);
     store.set(K.prefs, { ...prefs, services: prefs.services.length ? prefs.services : theirs.services, name: prefs.name || theirs.name });
   }
@@ -2294,6 +2392,14 @@ function wire() {
       toast("Removed from your diary", () => { diary.splice(n, 0, gone); store.set(K.diary, diary); renderDiary(); });
     } else if (e) openFilm(Number(e.dataset.i));
   });
+  $("favs").addEventListener("click", (ev) => {
+    const t = ev.target.closest(".fav-tile");
+    if (!t) return;
+    if (!t.hasAttribute("data-fav-add")) return openFilm(Number(t.dataset.i));
+    show("search");
+    $("q").focus({ preventScroll: true });
+    toast("Find a film you loved, then tap Favourite on its page");
+  });
   $("life").addEventListener("click", (ev) => {
     const c = ev.target.closest("[data-dec]"), t = ev.target.closest(".fav-tile");
     if (c) $("dec-cap").textContent = c.getAttribute("aria-label");
@@ -2314,8 +2420,8 @@ function wire() {
   $("unhide").addEventListener("click", () => { hidden.clear(); saveAll(); renderSettings(); });
   $("reset").addEventListener("click", () => {
     if (!confirm("Delete all your ratings, watchlist, diary and imports, and start over?")) return;
-    answers = []; hidden.clear(); snoozed.clear(); watch = []; seenOnly.clear(); diary = []; rateQueue = []; rateStack = [];
-    store.set(K.snoozed, []);
+    answers = []; hidden.clear(); snoozed.clear(); watch = []; seenOnly.clear(); diary = []; rateQueue = []; rateStack = []; favs = [];
+    store.set(K.snoozed, []); store.set(K.favs, favs);
     store.set(K.diary, diary); saveQueue(); saveAll();
     prefs.seed = newSeed(); savePrefs(); rebuild(); show("rate");
   });

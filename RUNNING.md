@@ -16,7 +16,7 @@ Posters, trailers and streaming links may still need the internet.
 
 ## Saved ratings and backups
 
-Ratings, your watchlist, diary and settings stay saved on this device when
+Ratings, favourites, your watchlist, diary and settings stay saved on this device when
 you close and reopen Kael. They do not sync automatically between devices.
 In **Settings > Backup**, save a backup before clearing app data or moving to
 another device, then restore that file in the installed copy there.
