@@ -34,19 +34,19 @@
   <link rel="apple-touch-icon" href="icons/kael-apple-touch.png?v=film-frame-v4">
   <link rel="icon" href="icons/kael-favicon.png?v=film-frame-v4" type="image/png" sizes="32x32">
   <link rel="icon" href="icons/kael-favicon.svg?v=film-frame-v4" type="image/svg+xml">
-  <link rel="manifest" href="manifest.webmanifest?v=20261109223229">
+  <link rel="manifest" href="manifest.webmanifest?v=20261109235915">
   <link rel="preconnect" href="https://image.tmdb.org">
   <link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="app.css?v=20261109223229">
-  <link rel="preload" as="fetch" crossorigin href="data/quick.json?v=20261109223229">
-  <link rel="preload" as="fetch" crossorigin href="data/seen.bin?v=20261109223229">
+  <link rel="stylesheet" href="app.css?v=20261109235915">
+  <link rel="preload" as="fetch" crossorigin href="data/quick.json?v=20261109235915">
+  <link rel="preload" as="fetch" crossorigin href="data/seen.bin?v=20261109235915">
   <link rel="modulepreload" href="engine.js">
   <link rel="modulepreload" href="importer.js">
   <link rel="modulepreload" href="search.js">
   <link rel="modulepreload" href="share.js">
   <link rel="modulepreload" href="brand.js">
-  <script type="module" src="app.js?v=20261109223229"></script>
-  <script src="install-persistence.js?v=20261109223229" defer></script>
+  <script type="module" src="app.js?v=20261109235915"></script>
+  <script src="install-persistence.js?v=20261109235915" defer></script>
 </head>
 <body>
   <div id="backdrop" aria-hidden="true"></div>
@@ -192,6 +192,12 @@
       <div class="stats" id="stats"></div>
 
       <div class="panel">
+        <h2>All-time favourites</h2>
+        <p>Your top 5 films ever. Kael reads each one as a cut above everything else you loved.</p>
+        <div id="favs"></div>
+      </div>
+
+      <div class="panel">
         <h2>Your taste</h2>
         <div id="scales"></div>
       </div>
@@ -245,7 +251,7 @@
 
       <div class="panel">
         <h2>Backup</h2>
-        <p>Your ratings, watchlist, diary and settings are saved on this device only. Save a backup before you delete the app or switch devices, then restore it there.</p>
+        <p>Your ratings, favourites, watchlist, diary and settings are saved on this device only. Save a backup before you delete the app or switch devices, then restore it there.</p>
         <div class="backup-actions">
           <button id="backup-save" class="primary">Save a backup</button>
           <label class="btn glass file-btn">Restore<input type="file" id="backup-file" accept=".json,application/json"></label>
