@@ -76,6 +76,13 @@ export class Engine {
     this.noise = meta.noise;
     this.unseenDelta = meta.unseen_delta ?? null;   // see Session.answer; null: "haven't seen" says nothing
     this.unseenNoise = meta.unseen_noise ?? 8;
+    // An all-time favourite says it sits favLift stars above your average film (favRef: its
+    // taste vector, with the 1 for generosity; favRefB: its general appeal), with the noise
+    // times favNoise (taste.quiz.Session.observation). null (an older build): just its rating.
+    this.favLift = meta.fav_lift != null && meta.fav_ref?.length === meta.k + 1 ? meta.fav_lift : null;
+    this.favNoise = meta.fav_noise ?? 1;
+    this.favRef = Float64Array.from(meta.fav_ref ?? []);
+    this.favRefB = meta.fav_ref_b ?? 0;
     this.scale = Float64Array.from(meta.scale);
     this.value = Object.fromEntries(meta.answers.map((a, j) => [a, meta.values[j]]));
     this.priorMean = Float64Array.from(meta.prior_mean);
@@ -211,10 +218,12 @@ export class Engine {
 export class Session {
   /** list: [[filmIndex, answer], ...]; answer is a label, exact stars, or null (haven't seen).
    *  seen: films watched but not rated (imported); they only inform "have you seen it?".
-   *  seed: varies which films the quiz opens with (see weights()); omit for the plain quiz. */
-  constructor(engine, list = [], seen = [], seed = null) {
+   *  seed: varies which films the quiz opens with (see weights()); omit for the plain quiz.
+   *  favs: your all-time favourites (film indices, among the rated films; see obs()). */
+  constructor(engine, list = [], seen = [], seed = null, favs = []) {
     this.e = engine;
     this.seen = new Set(seen);
+    this.favs = new Set(favs);
     this.jitter = seed == null ? null : engine.jitter(seed);
     this.cov = engine.priorCov.slice();
     this.h = cholSolve(engine.priorCov, engine.d, engine.priorMean);
@@ -233,6 +242,20 @@ export class Session {
     this._sd = new Map();
   }
 
+  /** What rated film j says about you, as {x, t, noise}: t ~ x . w, give or take noise
+   *  (taste.quiz.Session.observation). A rating: its stars above the film's general appeal.
+   *  A favourite: that it sits favLift stars above your average film. That is about taste
+   *  alone (your average film's generosity part cancels), so favourites don't make you
+   *  look like a generous rater and lift every prediction. */
+  obs(j, a) {
+    const e = this.e, x = e.x(j);
+    if (this.favs.has(j) && e.favLift != null) {
+      for (let q = 0; q < e.d; q++) x[q] -= e.favRef[q];
+      return { x, t: e.favLift - (e.bias[j] - e.favRefB), noise: e.noise * e.favNoise };
+    }
+    return { x, t: e.stars(a) - e.mu - e.bias[j], noise: e.noise };
+  }
+
   answer(i, label) {
     this.answers.set(i, label);
     const e = this.e;
@@ -241,9 +264,13 @@ export class Session {
     // prediction, trusted unseenNoise times less than a real rating (taste.quiz.Session.answer).
     if (label == null && e.unseenDelta == null) return;
     this.forget();
-    const d = e.d, S = this.cov, x = e.x(i);
-    const noise = label == null ? e.noise * e.unseenNoise : e.noise;
-    const t = label == null ? dot(x, this.mean) - e.unseenDelta : e.stars(label) - e.mu - e.bias[i];
+    const d = e.d, S = this.cov;
+    let x, t, noise;
+    if (label == null) {
+      x = e.x(i);
+      t = dot(x, this.mean) - e.unseenDelta;
+      noise = e.noise * e.unseenNoise;
+    } else ({ x, t, noise } = this.obs(i, label));
     const Sx = matVec(S, x, d);
     const denom = noise + dot(x, Sx);
     if (this._q) downdate(this._q, e.poolX(), d, Sx, denom);
@@ -339,8 +366,8 @@ export class Session {
     const rated = [...this.answers].filter(([, a]) => a != null);
     const R = rated.length, M = new Float64Array(k * R);
     rated.forEach(([j, a], r) => {
-      const Sx = matVec(this.cov, e.x(j), d), t = (e.stars(a) - e.mu - e.bias[j]) / e.noise;
-      for (let q = 0; q < k; q++) M[q * R + r] = Sx[q] * t;
+      const { x, t, noise } = this.obs(j, a), Sx = matVec(this.cov, x, d);
+      for (let q = 0; q < k; q++) M[q * R + r] = (Sx[q] * t) / noise;
     });
     return items.map((i) => {
       const x = e.x(i);
@@ -360,10 +387,10 @@ export class Session {
     const e = this.e, k = e.k, Sx = matVec(this.cov, e.x(i), e.d), out = [];
     for (const [j, a] of this.answers) {
       if (a == null) continue;
-      const xj = e.x(j);
+      const { x: xj, t, noise } = this.obs(j, a);
       let s = 0;
       for (let q = 0; q < k; q++) s += xj[q] * Sx[q];
-      const c = (s * (e.stars(a) - e.mu - e.bias[j])) / e.noise;
+      const c = (s * t) / noise;
       if (c > 0) out.push([j, a, c]);
     }
     out.sort((p, q) => q[2] - p[2]);
@@ -387,10 +414,10 @@ export class Session {
     const e = this.e, k = e.k, Sx = matVec(this.cov, e.x(i), e.d), out = [];
     for (const [j, a] of this.answers) {
       if (a == null || e.stars(a) < 3.5) continue;
-      const xj = e.x(j);
+      const { x: xj, t, noise } = this.obs(j, a);
       let s = 0;
       for (let q = 0; q < k; q++) s += xj[q] * Sx[q];
-      const c = (s * (e.stars(a) - e.mu - e.bias[j])) / e.noise;
+      const c = (s * t) / noise;
       if (c > minStars) out.push([j, c]);
     }
     return out.sort((a, b) => b[1] - a[1]).slice(0, top).map((r) => r[0]);

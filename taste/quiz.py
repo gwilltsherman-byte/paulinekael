@@ -62,6 +62,17 @@ class Model:
         # than predicted (delta stars lower, with noise_scale x unseen_noise).
         self.unseen_delta = meta.get("unseen_delta")
         self.unseen_noise = meta.get("unseen_noise", 8.0)
+        # An all-time favourite (one of your top few films) says it sits fav_lift stars
+        # above your average film, with the noise times fav_noise. None: a favourite is
+        # just its rating. Chosen by scripts/favorites_experiment.py (results/favorites_*).
+        self.fav_lift = meta.get("fav_lift")
+        self.fav_noise = meta.get("fav_noise", 1.0)
+        # "Your average film": the taste vector and general appeal of the films people
+        # watch, weighted by how often they're rated.
+        n = len(self.n_ratings)
+        self.fav_ref = self.n_ratings @ self.X[:n] / self.n_ratings.sum()
+        self.fav_ref[-1] = 1.0   # generosity: exactly, so a favourite leaves it out exactly
+        self.fav_ref_b = float(self.n_ratings @ self.b[:n] / self.n_ratings.sum())
 
     @property
     def items(self):
@@ -71,7 +82,7 @@ class Model:
 
 
 class Session:
-    def __init__(self, model, prior_scale=None, noise_scale=None):
+    def __init__(self, model, prior_scale=None, noise_scale=None, favorites=()):
         self.m = model
         prior_scale = model.prior_scale if prior_scale is None else prior_scale
         noise_scale = model.noise_scale if noise_scale is None else noise_scale
@@ -80,21 +91,36 @@ class Session:
         self.h = np.linalg.solve(self.cov, model.prior_mean)
         self.mean = model.prior_mean.copy()
         self.answers = {}  # item -> answer label, or None for "haven't seen"
+        self.favorites = set(favorites)  # all-time favourites, among the rated films
 
     def stars(self, label):
         """Answer button -> star value. Exact star ratings (floats) pass through."""
         return self.m.value[label] if isinstance(label, str) else float(label)
 
+    def observation(self, item, label):
+        """What a rated film says about you, as (x, t, noise): t ~ x . w, give or take noise.
+
+        A rating: its stars above the film's general appeal. A favourite: that it sits
+        fav_lift stars above your average film. That is about taste alone (x minus your
+        average film's, whose generosity parts cancel), so naming favourites doesn't
+        make you look like a generous rater and lift every prediction.
+        """
+        m, x = self.m, self.m.X[item]
+        if item in self.favorites and m.fav_lift is not None:
+            return x - m.fav_ref, m.fav_lift - (m.b[item] - m.fav_ref_b), self.noise * m.fav_noise
+        return x, self.stars(label) - m.mu - m.b[item], self.noise
+
     def answer(self, item, label):
         """Record an answer: a button label, an exact star rating, or None (haven't seen)."""
         self.answers[item] = label
-        x = self.m.X[item]
-        if label is None:
-            if self.m.unseen_delta is None:
-                return
-            t, noise = x @ self.mean - self.m.unseen_delta, self.noise * self.m.unseen_noise
-        else:
-            t, noise = self.stars(label) - self.m.mu - self.m.b[item], self.noise
+        if label is not None:
+            self.update(*self.observation(item, label))
+        elif self.m.unseen_delta is not None:
+            x = self.m.X[item]
+            self.update(x, x @ self.mean - self.m.unseen_delta, self.noise * self.m.unseen_noise)
+
+    def update(self, x, t, noise):
+        """Bayesian update for one observation t ~ x . w with the given noise."""
         Sx = self.cov @ x
         self.cov -= np.outer(Sx, Sx) / (noise + x @ Sx)
         self.h += x * t / noise
@@ -104,11 +130,10 @@ class Session:
         """Batch version of answer() for rated films (e.g. an imported history)."""
         items = list(items)
         self.answers.update(zip(items, labels))
-        X = self.m.X[items]
-        t = np.array([self.stars(a) for a in labels]) - self.m.mu - self.m.b[items]
-        prec = np.linalg.inv(self.cov) + X.T @ X / self.noise
+        X, t, noise = map(np.array, zip(*(self.observation(i, a) for i, a in zip(items, labels))))
+        prec = np.linalg.inv(self.cov) + X.T @ (X / noise[:, None])
         self.cov = np.linalg.inv(prec)
-        self.h += X.T @ t / self.noise
+        self.h += X.T @ (t / noise)
         self.mean = self.cov @ self.h
 
     def predict(self, items=None):
@@ -132,17 +157,17 @@ class Session:
     def explain(self, item, top=3):
         """Which films you liked pushed this film's prediction up the most.
 
-        The personal part of a prediction is x_i' S (S0^-1 m0 + sum_j x_j t_j / noise),
-        so each rated film j contributes exactly x_i' S x_j t_j / noise.
+        The personal part of a prediction is x_i' S (S0^-1 m0 + sum_j x_j t_j / noise_j),
+        so each rated film j contributes exactly x_i' S x_j t_j / noise_j (x_j, t_j and
+        noise_j as in observation()).
         """
         rated = [j for j, a in self.answers.items() if a is not None and self.stars(a) >= 3.5]
         if not rated:
             return []
-        Xj = self.m.X[rated]
-        t = np.array([self.stars(self.answers[j]) for j in rated]) - self.m.mu - self.m.b[rated]
+        Xj, t, noise = map(np.array, zip(*(self.observation(j, self.answers[j]) for j in rated)))
         # Taste dimensions only: the last one is rating generosity, which lifts
         # every film equally and so explains nothing about this one.
-        contrib = (Xj[:, :-1] @ (self.cov @ self.m.X[item])[:-1]) * t / self.noise
+        contrib = (Xj[:, :-1] @ (self.cov @ self.m.X[item])[:-1]) * t / noise
         order = np.argsort(-contrib)[:top]
         return [(rated[o], float(contrib[o])) for o in order if contrib[o] > 0]
 

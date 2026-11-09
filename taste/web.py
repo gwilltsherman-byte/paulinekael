@@ -144,6 +144,12 @@ def export(out, model_name="k64"):
         "content_var": CONTENT_VAR,
         "unseen_delta": m.unseen_delta,   # "haven't seen it" as a weak hint (taste.quiz); null: none
         "unseen_noise": m.unseen_noise,
+        # An all-time favourite: fav_lift stars above your average film (fav_ref, fav_ref_b),
+        # with the noise times fav_noise (taste.quiz.Session.observation); null: just its rating.
+        "fav_lift": m.fav_lift,
+        "fav_noise": m.fav_noise,
+        "fav_ref": np.round(m.fav_ref, 6).tolist(),
+        "fav_ref_b": round(m.fav_ref_b, 6),
         "seen_p": seen.p[:P].round(6).tolist(),
         "seen_scale": c_scale / 127,
         "seen_ridge": seen.ridge,
