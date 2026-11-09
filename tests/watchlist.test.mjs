@@ -16,11 +16,13 @@ function app(saved) {
   const stored = new Map([[WATCH, JSON.stringify(saved.map((i) => engine.films.imdb[i]))]]);
   const elements = new Map();
   const element = (id) => {
-    const controls = new Map();
+    const controls = new Map(), classes = new Set(), attrs = new Map();
     return {
-      id, innerHTML: "", textContent: "", hidden: true, dataset: {}, value: "",
-      style: { setProperty() {} }, classList: { toggle() {}, add() {}, remove() {} },
-      addEventListener() {}, querySelectorAll: () => [], setAttribute() {}, removeAttribute() {}, focus() {},
+      id, innerHTML: "", textContent: "", hidden: true, dataset: {}, value: "", attrs,
+      style: { setProperty() {} },
+      classList: { toggle: (c, on = !classes.has(c)) => (on ? classes.add(c) : classes.delete(c), on),
+        add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c) },
+      addEventListener() {}, querySelectorAll: () => [], setAttribute: (k, v) => attrs.set(k, String(v)), removeAttribute: (k) => attrs.delete(k), focus() {},
       querySelector(selector) {
         if (!controls.has(selector)) controls.set(selector, { textContent: "", disabled: false, focus() {} });
         return controls.get(selector);
@@ -39,9 +41,11 @@ function app(saved) {
     setTimeout: () => 0, clearTimeout() {},
   });
   vm.runInContext(`${source}\n globalThis.app = {
-    setup(engine) { E = engine; view = "lib"; rebuild(); },
+    setup(engine) { E = engine; view = "lib"; rebuild(); renderRate = () => {}; },
     pick(list) { watchSel = new Set(list); renderWatch(); },
     removeWatch, renderWatch, imdbOf, get watchSel() { return watchSel; },
+    rateSaveState, get answers() { return answers; },
+    rateSave(i) { $("rate-stage").querySelector(".fcard.front:not(.leaving):not(.gone)").dataset = { i: String(i) }; rateWith(null, { save: true }); },
   };`, context);
   context.app.setup(engine);
   return {
@@ -79,4 +83,38 @@ test("removing nothing leaves the Watchlist and toast alone", () => {
   h.api.removeWatch([]);
   assert.deepEqual(h.saved(), [5, 6]);
   assert.equal(h.elements.get("toast")?.innerHTML ?? "", "");
+});
+
+test("Rate's Save button shows when the film is already on the Watchlist", () => {
+  const h = app([5]);
+  h.api.rateSaveState(5);
+  const b = h.elements.get("rate-save");
+  assert.equal(b.querySelector("span").textContent, "Saved");
+  assert.equal(b.classList.contains("on"), true);
+  assert.match(b.attrs.get("aria-label"), /already on your watchlist/);
+  h.api.rateSaveState(6);
+  assert.equal(b.querySelector("span").textContent, "Save");
+  assert.equal(b.classList.contains("on"), false);
+  assert.match(b.attrs.get("aria-label"), /save to watchlist/);
+});
+
+test("saving an already-saved film on Rate keeps it saved, even after Undo", () => {
+  const h = app([5, 6]);
+  h.api.rateSave(6);
+  assert.match(h.elements.get("toast").innerHTML, /Already on your Watchlist/);
+  assert.deepEqual(h.saved(), [5, 6]);
+  assert.deepEqual([...h.api.answers.at(-1)], [h.api.imdbOf(6), null]);
+  h.undo();
+  assert.deepEqual(h.saved(), [5, 6]);
+  assert.equal(h.api.answers.length, 0);
+});
+
+test("saving a new film on Rate and undoing takes it off the Watchlist again", () => {
+  const h = app([5]);
+  h.api.rateSave(7);
+  assert.match(h.elements.get("toast").innerHTML, /Saved to Watchlist/);
+  assert.deepEqual(h.saved(), [7, 5]);
+  h.undo();
+  assert.deepEqual(h.saved(), [5]);
+  assert.equal(h.api.answers.length, 0);
 });
