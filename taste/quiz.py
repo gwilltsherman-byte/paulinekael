@@ -63,8 +63,8 @@ class Model:
         self.unseen_delta = meta.get("unseen_delta")
         self.unseen_noise = meta.get("unseen_noise", 8.0)
         # An all-time favourite (one of your top few films) says it sits fav_lift stars
-        # above your average film, with the noise times fav_noise
-        # (scripts/favorites_experiment.py). None: a favourite is just its rating.
+        # above your average film, with the noise times fav_noise. None: a favourite is
+        # just its rating. Chosen by scripts/favorites_experiment.py (results/favorites_*).
         self.fav_lift = meta.get("fav_lift")
         self.fav_noise = meta.get("fav_noise", 1.0)
         # "Your average film": the taste vector and general appeal of the films people
