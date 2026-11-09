@@ -835,6 +835,7 @@ async function renderRate() {
     stage.innerHTML = `<div class="empty">That's every film we had to ask you about.<br>Search for any film to rate more.</div>`;
     if ($("rate-title")) $("rate-title").textContent = "Every opinion counts.";
     if ($("rate-meta")) $("rate-meta").textContent = "Search for another film you've seen to keep shaping your taste.";
+    rateSaveState(-1);
     rateBusy = false;
     return;
   }
@@ -869,6 +870,7 @@ async function renderRate() {
   } else { setBackdrop(a); rateBusy = false; }
   if ($("rate-title")) $("rate-title").textContent = title(a);
   if ($("rate-meta")) $("rate-meta").textContent = subline(a);
+  rateSaveState(a);
   // The card after: hidden behind the front one, so its poster is ready in time.
   const back = stage.querySelector(".fcard.under");
   if (cardOf(back) !== (b ?? -1)) {
@@ -882,6 +884,16 @@ function rateCard(i, cls) {
     ${poster(i, "w780", "", true)}<div class="shade"></div>
     <div class="finfo"><h2>${esc(title(i))}</h2><p class="fsub">${esc(subline(i))}</p></div>
   </div>`;
+}
+
+/** The Rate screen's Save button says "Saved" when film i is already on your Watchlist. */
+function rateSaveState(i) {
+  const b = $("rate-save");
+  if (!b) return;
+  const on = i >= 0 && watch.includes(imdbOf(i));
+  b.classList.toggle("on", on);
+  b.querySelector("span").textContent = on ? "Saved" : "Save";
+  b.setAttribute("aria-label", on ? "Haven't seen it, already on your watchlist" : "Haven't seen it, save to watchlist");
 }
 
 function cardEl(i, cls) {
@@ -898,9 +910,13 @@ function rateWith(label, { save = false } = {}) {
   const i = Number(card.dataset.i);
   const before = S.rated;
   if (save) {
-    // Haven't seen it but want to: onto the Watchlist, and on to the next film.
-    if (!watch.includes(imdbOf(i))) toggleWatch(i);
-    toast("Saved to Watchlist", () => { if (watch.includes(imdbOf(i))) toggleWatch(i); undo(); });
+    // Haven't seen it but want to: onto the Watchlist, and on to the next film. Undo
+    // only takes it off again if this is what put it there.
+    if (watch.includes(imdbOf(i))) toast("Already on your Watchlist", undo);
+    else {
+      toggleWatch(i);
+      toast("Saved to Watchlist", () => { if (watch.includes(imdbOf(i))) toggleWatch(i); undo(); });
+    }
   }
   setAnswer(i, label);
   rateQueue = rateQueue.filter((x) => x !== i);

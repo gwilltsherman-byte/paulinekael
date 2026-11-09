@@ -214,6 +214,8 @@ kbd { font: inherit; border: 1px solid var(--line-2); border-radius: 3px; paddin
 .act.like svg { color: var(--like); }
 .act.love svg { color: var(--love); }
 .act.save svg { color: #8a6818; }
+.act.save.on { border-color: #8a6818; }
+.act.save.on svg { fill: currentColor; }
 .wall { position: absolute; top: var(--top); bottom: 90px; left: var(--gutter); right: var(--gutter); overflow: hidden auto; display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 20px; padding: 5px; align-content: start; }
 .wall .tile { position: relative; text-align: left; min-width: 0; }
 .wall .poster { width: 100%; }
