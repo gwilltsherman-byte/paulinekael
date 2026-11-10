@@ -13,7 +13,7 @@ const source = readFileSync(new URL("../web/app.js", import.meta.url), "utf8")
   .replace(/^import .*;\n/gm, "").replace(/\nstart\(\);\s*$/, "");
 const NOW = Date.UTC(2026, 9, 19, 6);
 const DAY = 24 * 60 * 60 * 1000;
-const SKIPS = "mt.snoozed.v1";
+const SKIPS = "mt.snoozed.v1", LOG = "mt.skiplog.v1";
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
 function app({ data = {}, rated = true, engine = makeEngine({ n: 80, pool: 30 }) } = {}) {
@@ -105,12 +105,14 @@ function app({ data = {}, rated = true, engine = makeEngine({ n: 80, pool: 30 })
   };
 }
 
-test("skipping replaces the hero for 90 days without changing taste or library state", () => {
+test("skipping replaces the hero for a week without changing taste or library state", () => {
   const h = app(), before = plain(h.api.state()), i = before.home.hero;
   h.api.setBrowse([i, ...before.home.pool.filter((j) => j !== i).slice(0, 3)]);
   h.api.homeSkip(i);
   const after = plain(h.api.state());
-  assert.deepEqual(h.read(SKIPS), [[h.engine.films.imdb[i], NOW + 90 * DAY]]);
+  assert.deepEqual(h.read(SKIPS), [[h.engine.films.imdb[i], NOW + 7 * DAY]]);
+  assert.deepEqual(h.read(LOG), [[h.engine.films.imdb[i], 1, NOW]]);
+  assert.match(h.elements.get("toast").innerHTML, /Skipped for a week\. Your ratings are unchanged/);
   for (const key of ["answers", "hidden", "watch", "seen", "rated", "mean", "cov"]) {
     assert.deepEqual(after[key], before[key], `${key} must not change`);
   }
@@ -129,10 +131,10 @@ test("skipping replaces the hero for 90 days without changing taste or library s
 test("a cached Home keeps the skip before the deadline and restores eligibility at the boundary", () => {
   const h = app(), i = h.api.state().home.hero;
   h.api.homeSkip(i);
-  h.clock(NOW + 90 * DAY - 1);
+  h.clock(NOW + 7 * DAY - 1);
   h.api.renderHome();
   assert.ok(!h.api.state().home.pool.includes(i));
-  h.clock(NOW + 90 * DAY);
+  h.clock(NOW + 7 * DAY);
   h.api.renderHome();
   assert.ok(h.api.state().home.pool.includes(i));
   assert.equal(h.api.state().home.hero, i);
@@ -191,7 +193,7 @@ test("skip confirmation keeps Undo focused until Undo or Dismiss returns focus t
   h.dismiss();
   assert.equal(toast.hidden, true);
   assert.equal(h.activeElement, nextPick);
-  assert.deepEqual(h.read(SKIPS), [[h.engine.films.imdb[i], NOW + 90 * DAY]]);
+  assert.deepEqual(h.read(SKIPS), [[h.engine.films.imdb[i], NOW + 7 * DAY]]);
 
   const next = h.api.state().home.hero;
   h.api.homeSkip(next);
@@ -214,7 +216,7 @@ test("a failed storage write neither skips a film nor falsely undoes a saved ski
   h.failStorage();
   h.undo();
   assert.ok(!h.api.state().home.pool.includes(i));
-  assert.deepEqual(h.read(SKIPS), [[h.engine.films.imdb[i], NOW + 90 * DAY]]);
+  assert.deepEqual(h.read(SKIPS), [[h.engine.films.imdb[i], NOW + 7 * DAY]]);
 });
 
 test("popular picks shown before three ratings respect persisted skips", () => {
@@ -225,13 +227,16 @@ test("popular picks shown before three ratings respect persisted skips", () => {
 });
 
 test("backups export skips, merge the furthest deadline, and ignore expired entries", async () => {
-  const h = app({ data: { [SKIPS]: [[1005, NOW + 10 * DAY]] } });
+  const h = app({ data: { [SKIPS]: [[1005, NOW + 5 * DAY]], [LOG]: [[1005, 1, NOW - 2 * DAY], [1009, 3, NOW - 9 * DAY]] } });
   await h.api.saveBackup();
   const saved = JSON.parse(await h.sharedFile.text());
-  assert.deepEqual(saved.data[SKIPS], [[1005, NOW + 10 * DAY]]);
+  assert.deepEqual(saved.data[SKIPS], [[1005, NOW + 5 * DAY]]);
+  assert.deepEqual(saved.data[LOG], [[1005, 1, NOW - 2 * DAY], [1009, 3, NOW - 9 * DAY]]);
   await h.api.restore({ [SKIPS]: [[1005, NOW + 20 * DAY], [1005, NOW + 5 * DAY],
-    [1006, NOW + DAY], [1007, NOW - DAY]] }, "merge");
+    [1006, NOW + DAY], [1007, NOW - DAY]], [LOG]: [[1005, 2, NOW - 3 * DAY], [1006, 1, NOW - 6 * DAY]] }, "merge");
   assert.deepEqual(h.read(SKIPS), [[1005, NOW + 20 * DAY], [1006, NOW + DAY]]);
+  assert.deepEqual(h.read(LOG), [[1005, 2, NOW - 2 * DAY], [1009, 3, NOW - 9 * DAY], [1006, 1, NOW - 6 * DAY]],
+    "per film: the most skips and the latest one");
   assert.equal(h.reloaded, true);
 });
 
@@ -249,9 +254,59 @@ test("backup replace restores skips and legacy backup handling preserves merge v
 });
 
 test("starting over removes saved skips together with the profile", () => {
-  const h = app({ data: { [SKIPS]: [[1005, NOW + DAY]] } });
+  const h = app({ data: { [SKIPS]: [[1005, NOW + DAY]], [LOG]: [[1005, 1, NOW - 6 * DAY]] } });
   h.api.reset();
   assert.deepEqual(h.read(SKIPS), []);
+  assert.deepEqual(h.read(LOG), []);
   assert.deepEqual(plain(h.api.state().snoozed), []);
   assert.equal(h.api.state().rated, 0);
+});
+
+test("skipping the same film again hides it longer: a week, a month, then 3 months", () => {
+  const h = app(), i = h.api.state().home.hero, id = h.engine.films.imdb[i];
+  const toast = () => h.elements.get("toast").innerHTML;
+  let at = NOW;
+  const again = "as you&#39;ve skipped it before";   // the toast's HTML, apostrophe escaped
+  for (const [days, words] of [[7, "a week"], [30, `a month, ${again}`], [90, `3 months, ${again}`], [90, `3 months, ${again}`]]) {
+    assert.equal(h.api.state().home.hero, i, "the film is back as the top pick");
+    h.api.homeSkip(i);
+    assert.deepEqual(h.read(SKIPS), [[id, at + days * DAY]]);
+    assert.match(toast(), new RegExp(`Skipped for ${words}\\.`));
+    at += days * DAY;
+    h.clock(at);
+    h.api.renderHome();
+  }
+  assert.deepEqual(h.read(LOG), [[id, 4, at - 90 * DAY]]);
+});
+
+test("skips are forgotten six months after the last one", () => {
+  const h = app(), i = h.api.state().home.hero, id = h.engine.films.imdb[i];
+  h.api.homeSkip(i);
+  h.clock(NOW + 180 * DAY);
+  h.api.renderHome();
+  assert.deepEqual(h.read(LOG), []);
+  h.api.homeSkip(i);
+  assert.deepEqual(h.read(SKIPS), [[id, NOW + 187 * DAY]], "a first skip again: a week");
+  assert.deepEqual(h.read(LOG), [[id, 1, NOW + 180 * DAY]]);
+});
+
+test("Undo of a repeat skip puts back the earlier count", () => {
+  const h = app(), i = h.api.state().home.hero, id = h.engine.films.imdb[i];
+  h.api.homeSkip(i);
+  h.clock(NOW + 7 * DAY);
+  h.api.renderHome();
+  h.api.homeSkip(i);
+  assert.deepEqual(h.read(LOG), [[id, 2, NOW + 7 * DAY]]);
+  h.undo();
+  assert.deepEqual(h.read(SKIPS), []);
+  assert.deepEqual(h.read(LOG), [[id, 1, NOW]]);
+  assert.equal(h.api.state().home.hero, i);
+});
+
+test("skips saved under the old 90-day rule come back within a week", () => {
+  const h = app({ data: { [SKIPS]: [[1005, NOW + 80 * DAY], [1006, NOW + 3 * DAY], [1007, NOW + 25 * DAY]],
+    [LOG]: [[1007, 2, NOW - 5 * DAY]] } });
+  assert.deepEqual(plain(h.api.state().snoozed), [[1005, NOW + 7 * DAY], [1006, NOW + 3 * DAY], [1007, NOW + 25 * DAY]],
+    "old skips are cut to a week; ones already within a week, and repeat skips made since, are left alone");
+  assert.deepEqual(h.read(SKIPS), [[1005, NOW + 7 * DAY], [1006, NOW + 3 * DAY], [1007, NOW + 25 * DAY]]);
 });
