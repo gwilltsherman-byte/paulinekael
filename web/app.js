@@ -9,6 +9,7 @@ const K = {
   answers: "mt.answers.v1",  // [[imdbId, label | stars | null], ...] oldest first
   hidden: "mt.hidden.v1",    // [imdbId, ...] "not for me"
   snoozed: "mt.snoozed.v1",  // [[imdbId, returnAfterMs], ...] temporary recommendation skips
+  skipLog: "mt.skiplog.v1",  // [[imdbId, timesSkipped, lastSkippedMs], ...] recent skips, so a repeat lasts longer
   watch: "mt.watch.v1",      // [imdbId, ...] newest first
   seen: "mt.seen.v1",        // [imdbId, ...] watched but not rated (imported)
   friends: "mt.friends.v1",  // [{id, name, rated, code, added}, ...] shared tastes
@@ -34,8 +35,12 @@ const IMG = "https://image.tmdb.org/t/p/";
 const GOAL = 20;        // ratings for sharp recommendations
 const FAVS_MAX = 5;     // all-time favourites: few, so each one really is a top film
 const WALL = 12;        // films per poster wall
-const SKIP_DAYS = 90;
-const SKIP_MS = SKIP_DAYS * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+// "Skip for now" is about a film you haven't seen, so it's mostly "not tonight", not a verdict
+// on the film: a first skip hides it for a week. Skipping the same film again means more, so
+// each repeat hides it longer. Skips are forgotten SKIP_MEMORY_DAYS after the last one.
+const SKIP_STEPS = [[7, "a week"], [30, "a month"], [90, "3 months"]];
+const SKIP_MEMORY_DAYS = 180;
 // "Best bets" ranks by a cautious score: predicted stars minus uncertainty. Films
 // with small audiences get extra uncertainty, because their average rating comes
 // mostly from devoted fans. Content-placed films get more still.
@@ -101,6 +106,8 @@ const isAnswer = (a) => a === null || (typeof a === "string" && Object.hasOwn(LA
 const asList = (v) => (Array.isArray(v) ? v : []);
 const clean = {
   ids: (v) => asList(v).filter(isId),
+  skipLog: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0]) && Number.isSafeInteger(e[1]) && e[1] > 0
+    && Number.isSafeInteger(e[2]) && e[2] > 0).map(([id, n, at]) => [id, n, at]),
   snoozed: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0])
     && Number.isSafeInteger(e[1]) && e[1] > 0 && e[1] <= 8640000000000000).map(([id, until]) => [id, until]),
   answers: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0]) && isAnswer(e[1] ?? null)).map(([id, a]) => [id, a ?? null]),
@@ -168,6 +175,18 @@ function servicesOf(i) {
 let answers = clean.answers(store.get(K.answers, []));
 let hidden = new Set(clean.ids(store.get(K.hidden, [])));
 let snoozed = new Map(clean.snoozed(store.get(K.snoozed, [])));
+let skipLog = new Map(clean.skipLog(store.get(K.skipLog, [])).map(([id, n, at]) => [id, [n, at]]));
+const logList = (log) => [...log].map(([id, [n, at]]) => [id, n, at]);
+// Skips saved before skips were spaced out lasted 90 days, and have no log entry: they come
+// back within a week, as a first skip does now.
+{
+  const cap = Date.now() + SKIP_STEPS[0][0] * DAY_MS;
+  const old = [...snoozed].filter(([id, until]) => !skipLog.has(id) && until > cap);
+  if (old.length) {
+    for (const [id] of old) snoozed.set(id, cap);
+    store.set(K.snoozed, [...snoozed]);
+  }
+}
 let watch = clean.ids(store.get(K.watch, []));
 let seenOnly = new Set(clean.ids(store.get(K.seen, [])));
 let friends = clean.friends(store.get(K.friends, []));
@@ -216,6 +235,9 @@ function expireSnoozes() {
   let changed = false;
   for (const [id, until] of snoozed) if (until <= now) { snoozed.delete(id); changed = true; }
   if (changed) { store.set(K.snoozed, [...snoozed]); homeDirty = true; }
+  let forgot = false;
+  for (const [id, [, at]] of skipLog) if (at + SKIP_MEMORY_DAYS * DAY_MS <= now) { skipLog.delete(id); forgot = true; }
+  if (forgot) store.set(K.skipLog, logList(skipLog));
 }
 
 function labelOf(a) {
@@ -1292,7 +1314,7 @@ function heroCard(i) {
         ${trailer(i) ? `<button class="btn quiet" data-trailer="${i}">${ICON.play}Trailer</button>` : ""}
         <button class="btn quiet" data-skip="${i}" aria-label="Skip for now: ${esc(title(i))}" aria-describedby="skip-note">${ICON.later}Skip for now</button>
       </div>
-      <p class="hero-skip-note" id="skip-note">Skipped films can return after ${SKIP_DAYS} days.</p>
+      <p class="hero-skip-note" id="skip-note">Skipped films come back in a week, or later if you skip them again.</p>
     </div>
   </article>`;
 }
@@ -1354,12 +1376,17 @@ function homeSave(i) {
   refresh();
 }
 
-/** A skip changes only recommendation eligibility, never the viewer's taste. */
+/** A skip changes only recommendation eligibility, never the viewer's taste: you haven't
+ *  seen the film. It's hidden for SKIP_STEPS: a week, longer if you've skipped it lately. */
 function homeSkip(i) {
-  const id = imdbOf(i), previous = snoozed.get(id);
-  const next = new Map(snoozed).set(id, Date.now() + SKIP_MS);
+  const id = imdbOf(i), now = Date.now(), previous = snoozed.get(id), previousLog = skipLog.get(id);
+  const times = previousLog && previousLog[1] + SKIP_MEMORY_DAYS * DAY_MS > now ? previousLog[0] + 1 : 1;
+  const [days, howLong] = SKIP_STEPS[Math.min(times, SKIP_STEPS.length) - 1];
+  const next = new Map(snoozed).set(id, now + days * DAY_MS), log = new Map(skipLog).set(id, [times, now]);
   if (!store.set(K.snoozed, [...next])) return;
+  store.set(K.skipLog, logList(log));
   snoozed = next;
+  skipLog = log;
   const focusNext = () => {
     if (view === "home") $("home").querySelector("[data-skip], [data-tonight]")?.focus({ preventScroll: true });
   };
@@ -1369,12 +1396,16 @@ function homeSkip(i) {
     focusNext();
   };
   redraw();
-  toast(`Skipped for ${SKIP_DAYS} days. Your ratings are unchanged.`, () => {
-    const restored = new Map(snoozed);
+  toast(`Skipped for ${howLong}${times > 1 ? ", as you've skipped it before" : ""}. Your ratings are unchanged.`, () => {
+    const restored = new Map(snoozed), restoredLog = new Map(skipLog);
     if (previous === undefined) restored.delete(id);
     else restored.set(id, previous);
+    if (previousLog === undefined) restoredLog.delete(id);
+    else restoredLog.set(id, previousLog);
     if (!store.set(K.snoozed, [...restored])) return;
+    store.set(K.skipLog, logList(restoredLog));
     snoozed = restored;
+    skipLog = restoredLog;
     redraw();
   }, { persistent: true, onDismiss: focusNext });
 }
@@ -2088,7 +2119,7 @@ async function importFile(file) {
 // ---------------------------------------------------------------- backup
 
 // A backup is every stored key (K), as saved: {app, version, saved, data: {key: value}}.
-const CLEAN = { [K.answers]: clean.answers, [K.hidden]: clean.ids, [K.snoozed]: clean.snoozed, [K.watch]: clean.ids, [K.seen]: clean.ids,
+const CLEAN = { [K.answers]: clean.answers, [K.hidden]: clean.ids, [K.snoozed]: clean.snoozed, [K.skipLog]: clean.skipLog, [K.watch]: clean.ids, [K.seen]: clean.ids,
   [K.friends]: clean.friends, [K.queue]: clean.ids, [K.diary]: clean.diary, [K.favs]: clean.favs };
 
 function renderBackup() {
@@ -2166,6 +2197,12 @@ async function restoreBackup(file) {
     const mergedSkips = new Map(snoozed);
     for (const [id, until] of list(K.snoozed)) mergedSkips.set(id, Math.max(until, mergedSkips.get(id) || 0));
     store.set(K.snoozed, [...mergedSkips].filter(([, until]) => until > Date.now()));
+    const mergedLog = new Map(skipLog);   // per film: the most skips and the latest one
+    for (const [id, n, at] of list(K.skipLog)) {
+      const mine = mergedLog.get(id) || [0, 0];
+      mergedLog.set(id, [Math.max(n, mine[0]), Math.max(at, mine[1])]);
+    }
+    store.set(K.skipLog, logList(mergedLog));
     store.set(K.seen, union([...seenOnly], list(K.seen)).filter((id) => !ratedIds.has(id)));
     store.set(K.watch, union(watch, list(K.watch)).filter((id) => !ratedIds.has(id)));
     store.set(K.diary, union(diary, list(K.diary), ([id, date]) => `${id}|${date}`));
@@ -2419,8 +2456,8 @@ function wire() {
   $("unhide").addEventListener("click", () => { hidden.clear(); saveAll(); renderSettings(); });
   $("reset").addEventListener("click", () => {
     if (!confirm("Delete all your ratings, watchlist, diary and imports, and start over?")) return;
-    answers = []; hidden.clear(); snoozed.clear(); watch = []; seenOnly.clear(); diary = []; rateQueue = []; rateStack = []; favs = [];
-    store.set(K.snoozed, []); store.set(K.favs, favs);
+    answers = []; hidden.clear(); snoozed.clear(); skipLog.clear(); watch = []; seenOnly.clear(); diary = []; rateQueue = []; rateStack = []; favs = [];
+    store.set(K.snoozed, []); store.set(K.skipLog, []); store.set(K.favs, favs);
     store.set(K.diary, diary); saveQueue(); saveAll();
     prefs.seed = newSeed(); savePrefs(); rebuild(); show("rate");
   });
