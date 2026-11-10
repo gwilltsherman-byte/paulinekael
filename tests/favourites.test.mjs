@@ -116,10 +116,11 @@ test("stored favourites are checked: repeats, more than five, and films not love
   assert.deepEqual(h.stored(), [5, 6, 8, 9]);
 });
 
-test("Your taste shows the favourites numbered, with a free slot for each one left", () => {
+test("Your taste shows the favourites, unnumbered, with a free slot for each one left", () => {
   const h = app({ rated: [[5, "loved"], [6, "loved"]], favs: [6, 5] });
   h.api.renderFavs();
   const html = h.elements.get("favs").innerHTML;
-  assert.match(html, /aria-label="Number 1: Film 6"[\s\S]*aria-label="Number 2: Film 5"/);
+  assert.match(html, /data-i="6">[\s\S]*<span>Film 6<\/span>[\s\S]*data-i="5">[\s\S]*<span>Film 5<\/span>/);
+  assert.doesNotMatch(html, /Number|<b>/);
   assert.equal((html.match(/data-fav-add/g) || []).length, 3);
 });
