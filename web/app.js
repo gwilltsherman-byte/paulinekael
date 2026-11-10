@@ -14,7 +14,7 @@ const K = {
   friends: "mt.friends.v1",  // [{id, name, rated, code, added}, ...] shared tastes
   queue: "mt.queue.v1",      // [imdbId, ...] poster-wall films still to rate
   diary: "mt.diary.v1",      // [[imdbId, "YYYY-MM-DD", label], ...] films you logged watching
-  favs: "mt.favs.v1",        // [imdbId, ...] all-time favourites, your #1 first (at most FAVS_MAX)
+  favs: "mt.favs.v1",        // [imdbId, ...] all-time favourites, in the order added (at most FAVS_MAX)
   prefs: "mt.prefs.v1",
 };
 const LABELS = { loved: "Loved it", liked: "Liked it", meh: "It was OK", disliked: "Didn't like it" };
@@ -1715,12 +1715,11 @@ function renderSettings() {
   setBackdrop(-1);
 }
 
-/** Your all-time favourites, #1 first, and a free slot for each one still to choose. */
+/** Your all-time favourites, and a free slot for each one still to choose. */
 function renderFavs() {
-  const tiles = favs.map((id, n) => {
+  const tiles = favs.map((id) => {
     const i = idx(id);
-    return i === undefined ? "" : `<button class="fav-tile" data-i="${i}" aria-label="Number ${n + 1}: ${esc(title(i))}">
-      ${poster(i, "w185")}<span><b>${n + 1}</b>${esc(title(i))}</span></button>`;
+    return i === undefined ? "" : `<button class="fav-tile" data-i="${i}">${poster(i, "w185")}<span>${esc(title(i))}</span></button>`;
   });
   const free = Array.from({ length: FAVS_MAX - favs.length }, () =>
     `<button class="fav-tile fav-free" data-fav-add><span class="fav-plus" aria-hidden="true">+</span><span>Add a favourite</span></button>`);

@@ -323,8 +323,7 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .fav-tile { flex: none; width: 110px; text-align: left; }
 .fav-tile .poster { width: 100%; }
 .fav-tile span { display: block; font-size: 12px; margin-top: 7px; }
-/* All-time favourites: numbered, with a dashed slot for each one still free. */
-.fav-tile b { font: 650 13px/1 var(--display); margin-right: 5px; color: #8a6818; }
+/* All-time favourites: a dashed slot for each one still free. */
 .fav-free span:last-child { color: var(--muted); }
 .fav-tile .fav-plus { display: grid; place-items: center; aspect-ratio: 2/3; margin: 0; border: 1px dashed var(--line-2); border-radius: 3px; font-size: 30px; font-weight: 300; color: var(--muted); }
 .fav-free:hover .fav-plus { border-color: var(--muted); }
