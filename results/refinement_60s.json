@@ -1,0 +1,58 @@
+{
+  "dataset": "GroupLens MovieLens 32M",
+  "dataSource": "https://grouplens.org/datasets/movielens/32m/",
+  "archiveMd5": "d472be332d4daa821edc399621853b57",
+  "split": "User-level train/validation/test partition from taste.data.prepare. The scorer withholds 30% of each user's ratings (at least ten, at most 1,000).",
+  "method": "Compare continued quiz with one optional, opportunity-triggered pair in the final decision window. Both arms use the same score-ordered slate of up to 15 held-out films, identical starting ratings and the same simulated time budget. Equal historical stars provide no preference.",
+  "interval": "Paired mean difference plus or minus 1.96 times the standard error across held-out users with recommendations in both arms. Values are proportions, not percentages.",
+  "interpretation": "Scores use historical ratings of films the user previously chose to watch. They do not measure elapsed interaction time, the probability of choosing a recommendation, or enjoyment after acting on it.",
+  "reproduce": "python scripts/refinement_inputs.py --split test --users 5000 | node scripts/compare_picks.mjs --data site/data",
+  "validation400": {
+    "metric": "historical 4+ share of top three held-out films (paired ready users)",
+    "catalogueBuild": "20261116194147",
+    "assumedSeconds": {
+      "seconds": 60,
+      "rate": 4,
+      "unseen": 2,
+      "compare": 4
+    },
+    "totalUsers": 400,
+    "eligibleSlates": 400,
+    "bothReady": 371,
+    "comparisonsOffered": 252,
+    "comparisonsAnswered": 87,
+    "baseline": 0.7735849056603779,
+    "refined": 0.7735849056603775,
+    "meanPairedDifference": 8.977544673518787e-19,
+    "approximate95PercentPairedInterval": [
+      -0.00965845425359345,
+      0.009658454253593454
+    ],
+    "improvedUsers": 15,
+    "worsenedUsers": 15
+  },
+  "test5000": {
+    "metric": "historical 4+ share of top three held-out films (paired ready users)",
+    "catalogueBuild": "20261116194147",
+    "assumedSeconds": {
+      "seconds": 60,
+      "rate": 4,
+      "unseen": 2,
+      "compare": 4
+    },
+    "totalUsers": 5000,
+    "eligibleSlates": 5000,
+    "bothReady": 4619,
+    "comparisonsOffered": 3263,
+    "comparisonsAnswered": 1015,
+    "baseline": 0.8138846792234885,
+    "refined": 0.8159053186115232,
+    "meanPairedDifference": 0.002020639388034928,
+    "approximate95PercentPairedInterval": [
+      -0.0003876337366207805,
+      0.004428912512690637
+    ],
+    "improvedUsers": 155,
+    "worsenedUsers": 126
+  }
+}
