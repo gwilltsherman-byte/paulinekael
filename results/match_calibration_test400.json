@@ -1,0 +1,100 @@
+{
+  "dataset": "MovieLens 32M",
+  "split": "test",
+  "users": 400,
+  "catalogueBuild": "20261116194147",
+  "method": "Refinement input split, user-seeded quiz, withheld titles excluded from questions; outcome is a historical rating of 4+.",
+  "maxPrompts": 400,
+  "reliabilityBinEdges": [
+    0,
+    0.2,
+    0.4,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1
+  ],
+  "results": [
+    {
+      "ratings": 0,
+      "users": 400,
+      "withheldFilms": 27971,
+      "brier": 0.216555,
+      "expectedCalibrationError": 0.015672,
+      "band80to90": {
+        "films": 79,
+        "meanForecast": 0.83037,
+        "observedFourPlus": 0.810127,
+        "observedMinusForecast95Interval": [
+          -0.114696,
+          0.071024
+        ]
+      }
+    },
+    {
+      "ratings": 3,
+      "users": 400,
+      "withheldFilms": 27971,
+      "brier": 0.204548,
+      "expectedCalibrationError": 0.01659,
+      "band80to90": {
+        "films": 1565,
+        "meanForecast": 0.837953,
+        "observedFourPlus": 0.841534,
+        "observedMinusForecast95Interval": [
+          -0.021271,
+          0.029006
+        ]
+      }
+    },
+    {
+      "ratings": 5,
+      "users": 400,
+      "withheldFilms": 27971,
+      "brier": 0.203107,
+      "expectedCalibrationError": 0.011394,
+      "band80to90": {
+        "films": 1702,
+        "meanForecast": 0.840931,
+        "observedFourPlus": 0.856639,
+        "observedMinusForecast95Interval": [
+          -0.010122,
+          0.0421
+        ]
+      }
+    },
+    {
+      "ratings": 10,
+      "users": 397,
+      "withheldFilms": 27893,
+      "brier": 0.197067,
+      "expectedCalibrationError": 0.013736,
+      "band80to90": {
+        "films": 2077,
+        "meanForecast": 0.842714,
+        "observedFourPlus": 0.867116,
+        "observedMinusForecast95Interval": [
+          -0.000249,
+          0.046792
+        ]
+      }
+    },
+    {
+      "ratings": 20,
+      "users": 386,
+      "withheldFilms": 27656,
+      "brier": 0.186271,
+      "expectedCalibrationError": 0.012574,
+      "band80to90": {
+        "films": 2360,
+        "meanForecast": 0.845692,
+        "observedFourPlus": 0.880508,
+        "observedMinusForecast95Interval": [
+          0.012774,
+          0.055088
+        ]
+      }
+    }
+  ]
+}

@@ -408,6 +408,75 @@ export class Session {
     return x;
   }
 
+  /** Rank the actual Home shortlist, keeping the hero among the six strongest
+   * cautious picks. A relative preference breaks close calls without changing
+   * predicted stars or the viewer's generosity. Records use stable IMDb IDs. */
+  refinePicks(shortlist, comparisons = [], allowQuestion = true) {
+    const e = this.e, predictions = this.scores();
+    const base = shortlist.map((i) => e.match(predictions[i], this.sd(i)));
+    const shifts = new Float64Array(shortlist.length);
+    const rank = (change, sign = 0) => {
+      // A single choice can shift rank by at most .06 on the 0–1 scale.
+      // The .10 overall cap keeps comparisons a secondary ranking signal.
+      const scores = base.map((p, j) => p + Math.max(-0.10, Math.min(0.10,
+        shifts[j] + (change ? sign * change[j] : 0))));
+      const order = shortlist.map((_, j) => j).sort((a, b) => scores[b] - scores[a]);
+      const lead = order.find((j) => j < 6);
+      return [shortlist[lead], ...order.filter((j) => j !== lead).map((j) => shortlist[j])];
+    };
+    const dirs = shortlist.map((i) => this.direction(i));
+    const affinities = new Map();
+    const affinity = (anchor) => {
+      if (!affinities.has(anchor)) {
+        const direction = this.direction(anchor);
+        affinities.set(anchor, dirs.map((d) => dot(d, direction)));
+      }
+      return affinities.get(anchor);
+    };
+    const contrast = (a, b) => {
+      const left = affinity(a), right = affinity(b);
+      return left.map((v, j) => .03 * (v - right[j]));
+    };
+    const pairKey = (a, b) => a < b ? a + "/" + b : b + "/" + a;
+    const asked = new Set();
+    let lastAskedAt = -1;
+    for (const [left, right, winner, at] of comparisons) {
+      const a = e.byImdb.get(left), b = e.byImdb.get(right);
+      if (this.answers.get(a) == null || this.answers.get(b) == null) continue;
+      asked.add(pairKey(a, b));
+      lastAskedAt = Math.max(lastAskedAt, at);
+      if (winner === null) continue;
+      const change = contrast(a, b), sign = winner === left ? 1 : -1;
+      for (let j = 0; j < shifts.length; j++) shifts[j] += sign * change[j];
+    }
+    const [hero, ...items] = rank();
+    const result = { hero, items, pair: null };
+    if (!allowQuestion || shortlist.length < 3 || this.rated < 3 || lastAskedAt >= this.rated) return result;
+
+    // Explicitly rated, similarly liked films make both choices plausible.
+    // Bound the search on large imported histories; selecting a pair never
+    // scans the full catalogue or evaluates a new posterior.
+    const anchors = [...this.answers].filter(([i, a]) => a != null && e.films.imdb[i] > 0).slice(-12);
+    let bestGain = 0;
+    for (let l = 0; l < anchors.length; l++) {
+      const [a, ra] = anchors[l];
+      for (let r = l + 1; r < anchors.length; r++) {
+        const [b, rb] = anchors[r];
+        if (asked.has(pairKey(a, b)) || Math.abs(e.stars(ra) - e.stars(rb)) > .5) continue;
+        const change = contrast(a, b);
+        const yes = rank(change, 1).slice(0, 3), no = rank(change, -1).slice(0, 3);
+        const impact = (yes[0] !== no[0] ? 2 : 0) + yes.filter((i) => !no.includes(i)).length;
+        // Within the same visible impact, prefer the pair that distinguishes
+        // the shortlist most clearly.
+        if (impact) {
+          const gain = impact + Math.max(...change) - Math.min(...change);
+          if (gain > bestGain) { bestGain = gain; result.pair = [a, b]; }
+        }
+      }
+    }
+    return result;
+  }
+
   /** Films you liked that pushed film i's prediction up the most (taste dims only),
    *  ignoring pushes under minStars. */
   explain(i, top = 2, minStars = 0.05) {
