@@ -1358,7 +1358,8 @@ function renderHome() {
         <h2>Good films.<br>Your kind of good.</h2>
         <p>Import your ratings or rate ${3 - S.rated}${S.rated ? " more" : ""} film${S.rated === 2 ? "" : "s"} you've seen to get your first picks.</p>
         <div class="stack"><button class="primary" data-known-titles>Rate films I know</button>
-        <label class="btn glass file-btn">Import Letterboxd / IMDb<input type="file" data-import-ratings accept=".zip,.csv,text/csv,application/zip"${$("import-file").disabled ? " disabled" : ""}></label>
+        <a class="btn glass" href="#imdb-import">Import IMDb ratings</a>
+        <label class="btn glass file-btn">Import Letterboxd<input type="file" data-import-ratings accept=".zip,.csv,text/csv,application/zip"${$("import-file").disabled ? " disabled" : ""}></label>
         <button class="btn quiet" data-wall>Browse the poster wall</button></div></div>
         <div class="welcome-films" aria-label="Popular films to rate">${pop.slice(0, 2).map((i) => `<button data-info="${i}" aria-label="Rate ${esc(title(i))}">${poster(i, "w342", "", true)}<span>${esc(title(i))}</span></button>`).join("")}</div>
       </div>`
@@ -2128,12 +2129,14 @@ function receiveTaste() {
 // ---------------------------------------------------------------- import
 
 let importGeneration = 0;
+let imdbImportFrom = "home";
 
 function importStatus(message, busy = false) {
   $("import-file").disabled = busy;
+  $("imdb-file").disabled = busy;
   const welcomeInput = $("home").querySelector("[data-import-ratings]");
   if (welcomeInput) welcomeInput.disabled = busy;
-  for (const id of ["import-result", "home-import-result"]) {
+  for (const id of ["import-result", "home-import-result", "imdb-result"]) {
     const el = $(id);
     el.textContent = message;
     el.hidden = !message;
@@ -2145,7 +2148,7 @@ function resetImport() {
   importStatus("");
 }
 
-async function importFile(file) {
+async function importFile(file, source = "auto") {
   if ($("import-file").disabled) return;
   const generation = importGeneration;
   try {
@@ -2155,26 +2158,36 @@ async function importFile(file) {
       if (generation !== importGeneration) return;
     }
     importStatus("Reading your ratings…", true);
-    const { ratings, seen, saves, logs, missing } = await readImport(file, E);
+    const { ratings, seen, saves, logs, missing, invalidRatings = 0 } = await readImport(file, E, source);
     if (generation !== importGeneration) return;
-    if (!ratings.length && !seen.length && !saves.length && !logs.length) throw new Error("no films found in it");
-    const has = new Map(answers.map(([id, a]) => [id, a]));
+    const n = (k, one, many) => `${k.toLocaleString()} ${k === 1 ? one : many}`;
+    const skipped = (missing ? ` We couldn't find ${n(missing, "title", "titles")} in Kael’s film catalogue.` : "")
+      + (invalidRatings ? ` Skipped ${n(invalidRatings, "row", "rows")} without a valid IMDb score.` : "");
+    if (!ratings.length && !seen.length && !saves.length && !logs.length) {
+      if (source === "imdb" || skipped) {
+        importStatus("No ratings imported." + (skipped || " This file contains no rated films."));
+        return;
+      }
+      throw new Error("no films found in it");
+    }
+    const has = new Map(answers), watchIds = new Set(watch);
     let added = 0, kept = 0;
     for (const [i, stars] of ratings) {
       const id = imdbOf(i);
       if (has.get(id) != null) { kept++; continue; }
-      answers = answers.filter(([x]) => x !== id);
-      answers.push([id, stars]);
-      watch = watch.filter((x) => x !== id);
+      has.delete(id);   // a previously skipped film becomes the latest rating
       seenOnly.delete(id);
+      watchIds.delete(id);
       has.set(id, stars);
       added++;
     }
     for (const i of seen) if (has.get(imdbOf(i)) == null) seenOnly.add(imdbOf(i));
     for (const i of saves) {
       const id = imdbOf(i);
-      if (has.get(id) == null && !seenOnly.has(id) && !watch.includes(id)) watch.push(id);
+      if (has.get(id) == null && !seenOnly.has(id)) watchIds.add(id);
     }
+    answers = [...has];
+    watch = [...watchIds];
     const logged = new Set(diary.map(([id, d]) => `${id}|${d}`));
     let dated = 0;
     for (const [i, date, stars] of logs) {
@@ -2187,12 +2200,11 @@ async function importFile(file) {
     store.set(K.diary, diary);
     saveAll();
     rebuild();
-    const n = (k, one, many) => `${k.toLocaleString()} ${k === 1 ? one : many}`;
     const got = [added && n(added, "rating", "ratings"), seen.length && n(seen.length, "watched film", "watched films"),
       saves.length && n(saves.length, "watchlist film", "watchlist films"), dated && n(dated, "diary entry", "diary entries")].filter(Boolean);
     importStatus((got.length ? `Imported ${and(got)}.` : "Nothing new to import.")
       + (kept ? ` ${n(kept, "film was", "films were")} already rated here, so we kept your answer${kept === 1 ? "" : "s"}.` : "")
-      + (missing ? ` We couldn't find ${n(missing, "film", "films")} from the file.` : ""));
+      + skipped);
     refresh();
   } catch (err) {
     if (generation === importGeneration) importStatus(fullReady ? `Couldn't import that file: ${err.message}.` : "Couldn't load the catalogue. Reconnect and choose the file again.");
@@ -2302,6 +2314,12 @@ async function restoreBackup(file) {
 // ---------------------------------------------------------------- navigation
 
 function show(v, { knownTitles = false } = {}) {
+  if (v === "imdb-import" && view !== v) {
+    imdbImportFrom = view === "settings" ? "settings" : "home";
+    $("imdb-back").dataset.go = imdbImportFrom;
+  } else if (view === "imdb-import" && v !== view && location.hash === "#imdb-import") {
+    history.replaceState(null, "", location.pathname + location.search);
+  }
   view = v;
   rateKnownTitles = v === "search" && knownTitles;
   if (v === "search") {
@@ -2322,6 +2340,14 @@ function show(v, { knownTitles = false } = {}) {
   const el = document.getElementById(`view-${v}`);
   el.scrollTop = 0;
   el.classList.remove("scrolled");
+  if (v === "imdb-import") $("imdb-heading").focus({ preventScroll: true });
+}
+
+function openLinkedView() {
+  if (location.hash === "#imdb-import") show("imdb-import");
+  else if (location.hash === "#rate") show("rate");
+  else return false;
+  return true;
 }
 
 function refresh() {
@@ -2333,6 +2359,7 @@ function refresh() {
   else if (view === "search") search($("q").value);
   else if (view === "me") renderMe();
   else if (view === "settings") renderSettings();
+  else if (view === "imdb-import") $("imdb-picks").hidden = S.rated < 3;
 }
 
 /** Full-catalogue browse and personalized picks wait for the rest of a quick-start download. */
@@ -2512,7 +2539,7 @@ function wire() {
   document.addEventListener("change", (ev) => {
     if (!ev.target.matches("input[data-import-ratings]")) return;
     const file = ev.target.files?.[0];
-    if (file) importFile(file);
+    if (file) importFile(file, ev.target.dataset.importRatings || "auto");
     ev.target.value = "";
   });
   $("more-mine").addEventListener("click", () => { mineShown = Infinity; renderRated(); });
@@ -2541,7 +2568,8 @@ function wire() {
   window.addEventListener("hashchange", () => {
     let got = false;
     try { got = receiveTaste(); } catch { /* an odd link: ignore it */ }
-    if (got) { homeShown = null; refresh(); } else if (!openSharedFilm() && location.hash === "#rate") show("rate");
+    if (got) { homeShown = null; refresh(); }
+    else if (!openSharedFilm() && !openLinkedView() && view === "imdb-import") show(imdbImportFrom);
   });
   $("taste-card").addEventListener("click", openTasteCard);
   $("backup-save").addEventListener("click", saveBackup);
@@ -2668,7 +2696,7 @@ async function start() {
   $("app").hidden = false;
   if (fullReady) warmSearch();
   try { receiveTaste(); } catch { /* an odd link: carry on without it */ }
-  show(location.hash === "#rate" ? "rate" : "home");
+  if (!openLinkedView()) show("home");
   let restored = null;
   try { restored = sessionStorage.getItem("kael.restored"); sessionStorage.removeItem("kael.restored"); } catch { /* private mode */ }
   if (restored) toast(restored === "merge" ? "Backup merged in" : "Backup restored");
