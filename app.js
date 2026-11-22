@@ -16,6 +16,7 @@ const K = {
   queue: "mt.queue.v1",      // [imdbId, ...] poster-wall films still to rate
   diary: "mt.diary.v1",      // [[imdbId, "YYYY-MM-DD", label], ...] films you logged watching
   favs: "mt.favs.v1",        // [imdbId, ...] all-time favourites, in the order added (at most FAVS_MAX)
+  comparisons: "mt.comparisons.v1",  // [lower IMDb id, higher id, preferred id or null for skip, ratings so far]
   prefs: "mt.prefs.v1",
 };
 const LABELS = { loved: "Loved it", liked: "Liked it", meh: "It was OK", disliked: "Didn't like it" };
@@ -113,6 +114,18 @@ const clean = {
   answers: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0]) && isAnswer(e[1] ?? null)).map(([id, a]) => [id, a ?? null]),
   diary: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0]) && isDay(e[1]) && isAnswer(e[2] ?? null)).map(([id, d, a]) => [id, d, a ?? null]),
   favs: (v) => [...new Set(asList(v).filter(isId))].slice(0, FAVS_MAX),
+  comparisons: (v) => {
+    const pairs = new Map();
+    for (const row of asList(v)) {
+      if (!Array.isArray(row)) continue;
+      const [a, b, winner, at] = row;
+      if (!isId(a) || !isId(b) || a === b || (winner !== null && winner !== a && winner !== b)
+          || !Number.isSafeInteger(at) || at < 0) continue;
+      const left = Math.min(a, b), right = Math.max(a, b), key = left + "/" + right;
+      if (!pairs.has(key)) pairs.set(key, [left, right, winner, at]);
+    }
+    return [...pairs.values()];
+  },
   friends: (v) => asList(v).filter((f) => f && typeof f === "object" && typeof f.id === "string" && typeof f.name === "string"
     && typeof f.code === "string" && /^[A-Za-z0-9_-]+$/.test(f.code)).map((f) => ({ ...f, rated: Number(f.rated) || 0 })),
   prefs: (v) => {
@@ -125,7 +138,9 @@ const clean = {
 };
 
 let E, S;
-let fullReady = true;   // false while a new visitor has only the question pool (see start); Search and picks wait for the rest
+let fullReady = true;   // A new visitor can rate titles in the question pool while the full catalogue loads.
+let catalogueLoad = null;   // shared by the background upgrade and a newly selected import
+let rateKnownTitles = false;
 let posters = [];
 let extras = { providers: {}, films: {} };
 // Streaming services: TMDB lists plan variants and channels separately ("Netflix
@@ -192,6 +207,7 @@ let seenOnly = new Set(clean.ids(store.get(K.seen, [])));
 let friends = clean.friends(store.get(K.friends, []));
 let diary = clean.diary(store.get(K.diary, []));
 let favs = clean.favs(store.get(K.favs, []));
+let comparisons = clean.comparisons(store.get(K.comparisons, []));
 let prefs = {
   list: "best", era: "any", genre: -1, deep: false, maxRuntime: 0, streamOnly: false,
   services: [], friend: null, name: "", onboarded: false,
@@ -267,7 +283,7 @@ function subline(i, withScore = false) {
 const posterUrl = (i, size) => (posters[i] ? `${IMG}${size}/${posters[i]}` : "");
 const gotPosters = new Set();   // poster images already downloaded: drawn again straight away
 const early = [];               // posters fetched before they're on screen (see preload)
-const noArt = new Set();        // films with no poster (or one that won't download): not shown in picks or asked
+const noArt = new Set();        // films without displayable artwork, for recommendation shelves
 
 /** A poster: TMDB's image, and nothing else. It stays invisible until it has downloaded
  *  and decoded, then fades in (see watchPosters). eager: on screen straight away. */
@@ -329,9 +345,27 @@ function badges(i) {
     + (E.flags[i] ? `<span class="badge">Rough guess</span>` : "");
 }
 
-function matchPill(p, inline = false, label = "match") {
-  const color = p >= 0.8 ? "var(--like)" : p >= 0.6 ? "var(--accent)" : "var(--meh)";
-  return `<div class="match${inline ? " inline" : ""}" style="--mc:${color}"><strong>${Math.round(p * 100)}%</strong><small>${label}</small></div>`;
+// The percentage model was fitted on 20-rating and full-history profiles,
+// using films with rating data. Keep other predictions qualitative.
+function matchDescription(i, predicted) {
+  if (S.rated < 3) return null;
+  const p = E.match(predicted, S.sd(i));
+  if (S.rated < 20 || E.flags[i]) {
+    const text = p >= 0.6 ? "Promising pick" : p >= 0.4 ? "Possible pick" : "Long shot";
+    const detail = E.flags[i] ? "Estimated from film details." : "Early estimate from your ratings.";
+    return { text, detail };
+  }
+  const percent = Math.round(p * 100);
+  return {
+    text: `≈${percent}% match`,
+    detail: `Estimated chance you would rate this film four stars or higher: about ${percent}%.`,
+  };
+}
+
+function matchPill(i, predicted, inline = false) {
+  const match = matchDescription(i, predicted);
+  if (!match) return "";
+  return `<span class="match${inline ? " inline" : ""}" role="img" aria-label="${match.text}. ${match.detail}" title="${match.detail}"><strong>${match.text}</strong></span>`;
 }
 
 /** Streaming-service logos for film i (yours first), or a note. */
@@ -634,7 +668,8 @@ function setRating(i, label) {
   const was = S.answers.get(i);
   if (was != null && labelOf(was) === label) return rateFilm(i);
   const g = guardFavs(() => setAnswer(i, label));
-  toast(`Changed to ${SHORT[label]}${g.lost ? ". No longer a favourite" : ""}`, () => { setAnswer(i, was); g.restore(); ratingChanged(i); });
+  const message = was == null ? `Rated ${title(i)}: ${SHORT[label]}` : `Changed to ${SHORT[label]}`;
+  toast(message + (g.lost ? ". No longer a favourite" : ""), () => { setAnswer(i, was); g.restore(); ratingChanged(i); });
   ratingChanged(i);
 }
 
@@ -693,7 +728,7 @@ function trailerFrame(i) {
 }
 
 function renderFilm(i, play) {
-  const sc = S.scores(), sd = S.sd(i), rated = S.answers.get(i), saved = watch.includes(imdbOf(i)), fav = isFav(i);
+  const sc = S.scores(), rated = S.answers.get(i), saved = watch.includes(imdbOf(i)), fav = isFav(i);
   const label = rated != null ? labelOf(rated) : null;
   const why = because(S.support(i, 8));
   const mine = myServices(), keys = servicesOf(i);
@@ -724,7 +759,7 @@ function renderFilm(i, play) {
       </div>
       <div class="film-match">
         ${label ? `<button class="your-rating" data-f="rate" style="--rc:${COLORS[label]}" aria-label="${YOURS[label]}. Change your rating"><span class="dot"></span>${YOURS[label]}${ICON.edit}</button>`
-          : S.rated >= 3 ? matchPill(E.match(sc[i], sd)) : `<p class="match-start">Rate ${3 - S.rated} more film${S.rated === 2 ? "" : "s"} to find your match.</p>`}
+          : S.rated >= 3 ? matchPill(i, sc[i]) : `<p class="match-start">Rate ${3 - S.rated} more film${S.rated === 2 ? "" : "s"} to find your match.</p>`}
         ${!label && S.rated >= 3 && why ? `<p class="fwhy">${why}</p>` : ""}
       </div>
       <div class="film-actions">
@@ -823,9 +858,9 @@ function closeFilm() {
 }
 
 async function shareFilm(i) {
-  const pct = S.rated >= 3 ? ` (${Math.round(E.match(S.scores()[i], S.sd(i)) * 100)}% match for me)` : "";
+  const match = S.answers.get(i) == null ? matchDescription(i, S.scores()[i]) : null;
   const url = `${location.origin}${location.pathname}#f=${imdbOf(i)}`;
-  const text = `${title(i)}${year(i) ? ` (${year(i)})` : ""}${pct} on Kael`;
+  const text = `${title(i)}${year(i) ? ` (${year(i)})` : ""}${match ? ` (${match.text.toLowerCase()} for me)` : ""} on Kael`;
   try {
     if (navigator.share) await navigator.share({ title: title(i), text, url });
     else { await navigator.clipboard.writeText(`${text}: ${url}`); toast("Link copied"); }
@@ -873,53 +908,24 @@ function saveQueue() {
   store.set(K.queue, rateQueue.map(imdbOf));
 }
 
-/** The film to rate now and the one after. The card behind is kept as the next
- *  question, so its poster has downloaded by the time it comes forward; the one after
- *  that is fetched early too. */
+/** Keep the next film behind the current card and begin loading its artwork early. */
 function rateFilms() {
-  rateQueue = rateQueue.filter((i) => !S.answers.has(i) && !noArt.has(i));
-  const kept = rateStack.filter((i) => !S.answers.has(i) && !noArt.has(i));
-  const first = rateQueue[0] ?? kept[0] ?? S.next(noArt);
+  rateQueue = rateQueue.filter((i) => !S.answers.has(i));
+  const kept = rateStack.filter((i) => !S.answers.has(i));
+  const first = rateQueue[0] ?? kept[0] ?? S.next();
   if (first < 0) return (rateStack = []);
   let second = rateQueue[1] ?? (kept[0] === first ? kept[1] : undefined);
   if (second === undefined) {
-    const ahead = S.nextBatch(3, noArt).filter((i) => i !== first);
+    const ahead = S.nextBatch(3).filter((i) => i !== first);
     second = ahead[0];
     if (ahead[1] !== undefined) preload(ahead[1]);
   } else if (rateQueue[2] !== undefined) preload(rateQueue[2]);
   return (rateStack = second === undefined ? [first] : [first, second]);
 }
 
-let rateBusy = false;   // the next card's poster is still downloading: answers wait for it
-let rateGen = 0;        // counts draws, so an older one still waiting for a poster gives way
-
-/** Resolves true once card's poster has downloaded and decoded (so it can be shown
- *  whole), false if it can't be. */
-function posterReady(card, ms = 15000) {
-  const box = card.querySelector(".poster"), img = box.querySelector("img");
-  if (!img) return Promise.resolve(false);
-  return new Promise((res) => {
-    let over = false;
-    const end = (ok) => { if (over) return; over = true; clearTimeout(t); mo.disconnect(); res(ok); };
-    const check = () => {
-      if (box.classList.contains("noimg") || !img.isConnected) return end(false);
-      if (box.classList.contains("pending") || !img.complete || !img.naturalWidth) return;
-      if (img.decode) img.decode().then(() => end(true), () => end(true));
-      else end(true);
-    };
-    const mo = new MutationObserver(check);
-    mo.observe(box, { attributes: true, attributeFilter: ["class"], childList: true });
-    img.addEventListener("load", check);
-    const t = setTimeout(() => end(false), ms);
-    check();
-  });
-}
-
-/** The Rate cards: the front one, and the next one hidden right behind it with its
- *  poster downloading. A card is only ever seen once its poster is ready: answering
- *  fades the front card out to show the next, and a film that isn't behind it (the
- *  first one, or one brought back by Undo) fades in on top. */
-async function renderRate() {
+/** Promote the question and its controls together. Artwork can arrive later or fail
+ *  offline without changing which film the person is rating. */
+function renderRate() {
   const n = S.rated;
   if ($("rate-progress")) $("rate-progress").textContent = n < GOAL ? `${n} / ${GOAL}` : `${n} rated`;
   if ($("rate-ready")) $("rate-ready").hidden = n < 3;
@@ -927,48 +933,31 @@ async function renderRate() {
   const last = answers.at(-1);
   $("undo").hidden = !last;
   if (last) $("undo-label").textContent = last[1] == null ? "Not seen" : SHORT[labelOf(last[1])];
-  const films = rateFilms(), stage = $("rate-stage"), gen = ++rateGen;
+  const films = rateFilms(), stage = $("rate-stage");
   if (!films.length) {
     stage.innerHTML = `<div class="empty">That's every film we had to ask you about.<br>Search for any film to rate more.</div>`;
     if ($("rate-title")) $("rate-title").textContent = "Every opinion counts.";
     if ($("rate-meta")) $("rate-meta").textContent = "Search for another film you've seen to keep shaping your taste.";
     rateSaveState(-1);
-    rateBusy = false;
     return;
   }
   stage.querySelector(".empty")?.remove();
   const [a, b] = films, cardOf = (c) => (c ? Number(c.dataset.i) : -1);
-  const front = stage.querySelector(".fcard.front:not(.leaving):not(.gone)");
+  const front = stage.querySelector(".fcard.front");
   if (cardOf(front) !== a) {
-    const back = stage.querySelector(".fcard.under"), coming = stage.querySelector(".fcard.hold");
-    let next = cardOf(back) === a ? back : cardOf(coming) === a ? coming : null;
-    if (coming && coming !== next) coming.remove();
-    if (!next) { next = cardEl(a, "hold"); stage.append(next); }   // on top, unseen for now
-    rateBusy = true;
-    const ready = await posterReady(next);
-    if (gen !== rateGen) return;   // a newer draw took over
-    if (!ready) {
-      next.remove();
-      if (!navigator.onLine) return addEventListener("online", () => gen === rateGen && renderRate(), { once: true });
-      noArt.add(a);
-      return renderRate();
-    }
-    stage.querySelectorAll(".fcard.under, .fcard.hold").forEach((c) => { if (c !== next) c.remove(); });
-    if (front) {
-      // From behind: the front card fades out to show it. On top: it fades in over the front card.
-      front.classList.add(next.classList.contains("under") ? "leaving" : "gone");
-      setTimeout(() => front.remove(), 240);
-    }
-    next.classList.remove("under", "hold");
-    next.classList.add("front");
-    next.inert = false;
-    setBackdrop(a);
-    rateBusy = false;
-  } else { setBackdrop(a); rateBusy = false; }
+    const back = stage.querySelector(".fcard.under");
+    front?.remove();
+    if (cardOf(back) === a) {
+      back.classList.remove("under");
+      back.classList.add("front");
+      back.inert = false;
+    } else stage.append(cardEl(a, "front"));
+  }
+  setBackdrop(a);
   if ($("rate-title")) $("rate-title").textContent = title(a);
   if ($("rate-meta")) $("rate-meta").textContent = subline(a);
   rateSaveState(a);
-  // The card after: hidden behind the front one, so its poster is ready in time.
+  // Start the next poster while the current question is on screen.
   const back = stage.querySelector(".fcard.under");
   if (cardOf(back) !== (b ?? -1)) {
     back?.remove();
@@ -997,25 +986,26 @@ function cardEl(i, cls) {
   const t = document.createElement("template");
   t.innerHTML = rateCard(i, cls).trim();
   const el = t.content.firstElementChild;
-  el.inert = cls !== "front";   // unseen until its poster is ready, so no focus either
+  el.inert = cls !== "front";   // the prefetched card cannot receive input
   return el;
 }
 
 function rateWith(label, { save = false } = {}) {
   const card = $("rate-stage").querySelector(".fcard.front:not(.leaving):not(.gone)");
-  if (!card || rateBusy) return;
+  if (!card) return;
   const i = Number(card.dataset.i);
   const before = S.rated;
-  if (save) {
-    // Haven't seen it but want to: onto the Watchlist, and on to the next film. Undo
-    // only takes it off again if this is what put it there.
-    if (watch.includes(imdbOf(i))) toast("Already on your Watchlist", undo);
-    else {
-      toggleWatch(i);
-      toast("Saved to Watchlist", () => { if (watch.includes(imdbOf(i))) toggleWatch(i); undo(); });
-    }
-  }
   setAnswer(i, label);
+  if (save) {
+    const entry = answers.at(-1), alreadySaved = watch.includes(imdbOf(i));
+    if (!alreadySaved) toggleWatch(i);
+    toast(alreadySaved ? "Already on your Watchlist" : "Saved to Watchlist", () => {
+      // A newer card might already be rated when they tap this toast.
+      if (!answers.includes(entry)) return;
+      if (!alreadySaved && watch.includes(imdbOf(i))) toggleWatch(i);
+      undoAnswer(entry);
+    });
+  }
   rateQueue = rateQueue.filter((x) => x !== i);
   saveQueue();
   if (before < 3 && S.rated === 3) toast("Nice! Your first picks are waiting on Home");
@@ -1024,23 +1014,40 @@ function rateWith(label, { save = false } = {}) {
 }
 
 function undo() {
-  if (rateBusy) return;
-  const last = answers.pop();
-  if (!last) return;
+  undoAnswer(answers.at(-1));
+}
+
+function undoAnswer(entry) {
+  const at = answers.indexOf(entry);
+  if (at < 0) return;
+  answers.splice(at, 1);
   saveAll();
   rebuild();
-  const i = idx(last[0]);
-  if (i !== undefined) rateQueue.unshift(i);
+  const i = idx(entry[0]);
+  if (i !== undefined) rateQueue = [i, ...rateQueue.filter((j) => j !== i)];
   saveQueue();
   renderRate();
 }
 
 // ---------------------------------------------------------------- poster wall
 
+// Browsing past a wall is navigation only. Remember it for this visit so Next
+// offers fresh titles without saving twelve answers that the visitor never gave.
+const wallBrowsed = new Set();
+
 function openWall() {
-  const queued = new Set(rateQueue);
-  wallItems = S.nextBatch(WALL + queued.size, noArt).filter((i) => !queued.has(i)).slice(0, WALL);
+  wallBrowsed.clear();
+  nextWall();
+}
+
+function nextWall() {
+  const skip = new Set([...rateQueue, ...wallBrowsed]);
+  wallItems = S.nextBatch(WALL, skip);
   wallSel = new Set();
+  if (!wallItems.length) {
+    show("rate");
+    return;
+  }
   show("wall");
 }
 
@@ -1054,13 +1061,16 @@ function renderWall() {
   setBackdrop(wallItems[0] ?? -1);
 }
 
-function finishWall() {
-  for (const i of wallItems) if (!wallSel.has(i) && !S.answers.has(i)) setAnswer(i, null);
+function finishWall(noneSeen = false) {
+  for (const i of wallItems) {
+    wallBrowsed.add(i);
+    if (noneSeen && !S.answers.has(i)) setAnswer(i, null);
+  }
   if (wallSel.size) {
-    rateQueue.push(...wallItems.filter((i) => wallSel.has(i)));
+    rateQueue.push(...wallItems.filter((i) => wallSel.has(i) && !S.answers.has(i) && !rateQueue.includes(i)));
     saveQueue();
     show("rate");
-  } else openWall();
+  } else nextWall();
 }
 
 // ---------------------------------------------------------------- picks
@@ -1197,20 +1207,18 @@ function buildHome() {
   const add = (title, items, extra = {}) => { if (items.length >= SHELF_MIN) shelves.push({ title, items, ...extra }); };
   const where = (test) => pool.filter(test);
 
-  // Top picks are chosen by the cautious score, then shown best match first, so the
-  // hero is never out-matched by the tiles beside it.
-  const matchOf = (i) => E.match(sc[i], S.sd(i));
+  // First select a cautious, varied shortlist. Explicit comparisons affect its
+  // order, never which films qualify or their calibrated match probabilities.
   const top = pick(where((i) => f.votes[i] >= 2000), key, { n: SHELF_LEN + 1 });
-  const m = new Map(top.map((i) => [i, matchOf(i)]));
-  const hero = top.slice(0, 6).sort((a, b) => m.get(b) - m.get(a))[0];
-  add("Top picks for you", top.filter((i) => i !== hero).sort((a, b) => m.get(b) - m.get(a)));
+  const { hero, items, pair } = S.refinePicks(top, comparisons, top.length > SHELF_MIN);
+  add("Top picks for you", items);
 
   const friend = activeFriend();
   if (friend) {
     const fs = E.project(decodeTaste(friend.code));
     const both = where((i) => f.votes[i] >= 2000);
     const k = new Map(both.map((i) => [i, Math.min(key.get(i), fs[i] - caution(i))]));
-    add(`For you and ${friend.name}`, pick(both, k), { sub: "Films you'd both enjoy" });
+    add(`For you and ${friend.name}`, pick(both, k), { sub: "Picks from both taste profiles", shared: true });
   }
 
   // "Because you loved ___": one of your favourites (a different one each day), then your
@@ -1254,7 +1262,7 @@ function buildHome() {
   if (genresLiked[1] !== undefined) genreShelf(genresLiked[1]);
   add("Classics for you", pick(where((i) => f.year[i] < 1980 && f.votes[i] >= 2000)));
 
-  return { hero, shelves, pool, key, pen, sc };
+  return { hero, shelves, pool, key, pen, sc, pair };
 }
 
 /** The n items with the highest score (in no particular order), without sorting them
@@ -1277,6 +1285,8 @@ function dotDir(a, b) {
  *  them (saving doesn't change your taste). */
 function dropFromHome(i) {
   if (!home) return;
+  home.pair = null;  // the original question was chosen for a different shortlist
+  home.pool = home.pool.filter((item) => item !== i);
   for (const sh of home.shelves) sh.items = sh.items.filter((x) => x !== i);
   if (home.hero === i) home.hero = home.shelves[0]?.items.shift();
   homeDirty = false;
@@ -1306,7 +1316,7 @@ function heroCard(i) {
     <div class="hero-info">
       <h2><button data-info="${i}">${esc(title(i))}</button></h2>
       <p class="fsub">${esc(subline(i, true))}</p>
-      <div class="hero-top">${matchPill(E.match(home.sc[i], S.sd(i)))}${E.flags[i] ? `<span class="hero-caution">An estimated match</span>` : ""}</div>
+      <div class="hero-top">${matchPill(i, home.sc[i])}${E.flags[i] ? `<span class="hero-caution">An estimated match</span>` : ""}</div>
       <p class="fwhy">${why || context}</p>
       <div class="hero-actions">
         <button class="primary" data-info="${i}">Explore film ${ICON.chevron}</button>
@@ -1320,7 +1330,7 @@ function heroCard(i) {
 }
 
 function tile(i, withMatch = true, sc = home?.sc, eager = false) {
-  const m = withMatch ? `<span class="tm">${matchPill(E.match(sc[i], S.sd(i)), true, "")}</span>` : "";
+  const m = withMatch ? `<span class="tm">${matchPill(i, sc[i], true)}</span>` : "";
   return `<button class="stile" data-i="${i}">${poster(i, "w342", "", eager)}${m}
     <span class="tt">${esc(title(i))}</span><span class="ts">${esc([year(i), hm(runtime(i))].filter(Boolean).join(" · "))}</span></button>`;
 }
@@ -1333,7 +1343,7 @@ function shelfHtml(sh, withMatch = true) {
     ? `<div class="because">${poster(sh.because, "w92")}<div><small>${becauseOf(sh.because)}</small><h2>${esc(title(sh.because))}</h2></div></div>`
     : `<div><h2>${esc(sh.title)}</h2>${sh.sub ? `<p>${esc(sh.sub)}</p>` : ""}</div>`;
   return `<section class="shelf"><div class="shelf-head">${head}</div>
-    <div class="shelf-row">${sh.items.map((i, k) => tile(i, withMatch, home?.sc, k < 6)).join("")}</div></section>`;
+    <div class="shelf-row">${sh.items.map((i, k) => tile(i, withMatch && !sh.shared, home?.sc, k < 6)).join("")}</div></section>`;
 }
 
 function renderHome() {
@@ -1346,9 +1356,10 @@ function renderHome() {
     pop.sort((a, b) => f.votes[b] - f.votes[a]);
     el.innerHTML = `<div class="welcome welcome-start"><div class="welcome-copy">
         <h2>Good films.<br>Your kind of good.</h2>
-        <p>Rate ${3 - S.rated} more film${S.rated === 2 ? "" : "s"} you've seen and Kael will start picking films for you. The more you rate, the better it gets to know you.</p>
-        <div class="stack"><button class="primary" data-wall>Start with the poster wall</button>
-        <button class="btn glass" data-go="rate">Rate one by one</button></div></div>
+        <p>Import your ratings or rate ${3 - S.rated}${S.rated ? " more" : ""} film${S.rated === 2 ? "" : "s"} you've seen to get your first picks.</p>
+        <div class="stack"><button class="primary" data-known-titles>Rate films I know</button>
+        <label class="btn glass file-btn">Import Letterboxd / IMDb<input type="file" data-import-ratings accept=".zip,.csv,text/csv,application/zip"${$("import-file").disabled ? " disabled" : ""}></label>
+        <button class="btn quiet" data-wall>Browse the poster wall</button></div></div>
         <div class="welcome-films" aria-label="Popular films to rate">${pop.slice(0, 2).map((i) => `<button data-info="${i}" aria-label="Rate ${esc(title(i))}">${poster(i, "w342", "", true)}<span>${esc(title(i))}</span></button>`).join("")}</div>
       </div>`
       + shelfHtml({ title: "Popular right now", sub: "Seen any? Tap to rate it", items: pop.slice(0, 20) }, false);
@@ -1363,10 +1374,34 @@ function renderHome() {
   el.innerHTML = `<div class="home-feature">${home.hero !== undefined ? heroCard(home.hero) : `<div class="welcome"><h2>A fresh perspective.</h2><p>You've explored all your current picks. Rate more films or look through your watchlist.</p></div>`}
     <aside class="home-aside">
       <button class="tonight" data-tonight><span class="ic">${ICON.moon}</span>
-        <span class="tx"><b>What to watch tonight</b><span>A mood. A little time. Three films for you.</span></span>${ICON.chevron}</button>
+        <span class="tx"><b>What to watch tonight</b><span>See picks with your current filters.</span></span>${ICON.chevron}</button>
       <div class="taste-note"><h3>A taste all your own.</h3><p>${S.rated.toLocaleString()} films rated. Your opinions shape every recommendation.</p>
-        <button class="text-link" data-go="rate">Keep shaping your taste ${ICON.chevron}</button></div>
+        ${home.pair ? '<button class="text-link" data-compare>Refine your top picks with one comparison</button>' : '<button class="text-link" data-go="rate">Keep shaping your taste ' + ICON.chevron + '</button>'}</div>
     </aside></div>` + home.shelves.map((sh) => shelfHtml(sh)).join("");
+}
+
+async function comparePicks() {
+  const pair = home?.pair;
+  if (!pair) return;
+  const buttons = pair.map((i) => `<button class="btn glass wide" data-x="pick:${imdbOf(i)}">${esc(title(i))}${year(i) ? " (" + year(i) + ")" : ""}</button>`);
+  const choice = await openSheet(`<h3>Which film did you prefer?</h3>
+    <div class="stack">${buttons.join("")}</div><button class="cancel" data-x="skip">Skip this question</button>`);
+  if (home?.pair !== pair) return;
+  const ids = pair.map(imdbOf).sort((a, b) => a - b);
+  const winner = ids.find((id) => choice === "pick:" + id) ?? null;
+  const record = [...ids, winner, S.rated];
+  const update = (records) => {
+    if (!store.set(K.comparisons, records)) return false;
+    comparisons = records;
+    homeDirty = true;
+    refresh();
+    return true;
+  };
+  if (update([...comparisons, record])) {
+    toast(winner === null ? "Comparison skipped" : "Top picks updated",
+      () => update(comparisons.filter((entry) => entry !== record)));
+    $("home").querySelector(".hero-info [data-info]")?.focus({ preventScroll: true });
+  }
 }
 
 function homeSave(i) {
@@ -1433,8 +1468,14 @@ async function openTonight() {
   if (S.rated < 3) return toast(`Rate ${3 - S.rated} more film${S.rated === 2 ? "" : "s"} first, then we'll find you something`);
   if (homeDirty || !home) { home = buildHome(); homeDirty = false; }
   const friend = activeFriend();
-  const st = { mood: "any", time: 0, who: "me", mine: prefs.services.length > 0 };
-  let results = [], at = 0;
+  const saved = prefs.tonight;
+  const st = {
+    mood: MOODS.find((m) => m.id === saved?.mood)?.id ?? "any",
+    time: TIMES.find(([v]) => v === saved?.time)?.[0] ?? 0,
+    who: friend && saved?.friendId === friend.id ? "friend" : "me",
+    mine: prefs.services.length > 0 && saved?.mine !== false,
+  };
+  let results = tonightPicks(st), at = 0;
   const card = () => $("sheet-card");
   const opt = (g, v, label) => `<button class="opt" data-x="opt:${g}:${v}" aria-pressed="${String(st[g]) === String(v)}">${esc(label)}</button>`;
   const form = () => `<h3>Tonight</h3><p class="sub">What are you in the mood for?</p>
@@ -1443,27 +1484,33 @@ async function openTonight() {
     <div class="opts">${TIMES.map(([v, l]) => opt("time", v, l)).join("")}</div>
     ${friend ? `<h4 class="opt-h">Who's watching?</h4><div class="opts">${opt("who", "me", "Just me")}${opt("who", "friend", `Me and ${friend.name}`)}</div>` : ""}
     ${prefs.services.length ? `<label class="switch"><span>Only on my services</span><input type="checkbox" id="tn-mine"${st.mine ? " checked" : ""}></label>` : ""}
-    <button class="primary wide" data-x="go">Show me 3 picks</button>`;
+    <button class="primary wide" data-x="go">Show picks</button>`;
   const shown = () => {
-    if (!results.length) return `<h3>Tonight</h3><div class="empty">Nothing fits all of that.<br>Try a different mood or length.</div>
-      <button class="primary wide" data-x="change">Change</button>`;
+    const filters = [
+      MOODS.find((m) => m.id === st.mood).label,
+      st.time && TIMES.find(([v]) => v === st.time)[1],
+      st.mine && "My services",
+      st.who === "friend" && friend.name,
+    ].filter(Boolean).join(" · ");
+    const header = `<h3>Tonight</h3><div class="tn-filters"><p>${esc(filters)}</p>
+      <button class="btn small glass" data-x="change">Edit filters</button></div>`;
+    if (!results.length) return header + '<div class="empty">No films match these filters.</div>';
     const three = results.slice(at, at + 3);
-    return `<h3>Tonight</h3><p class="sub">${esc(MOODS.find((m) => m.id === st.mood).label)}${st.time ? ` · ${esc(TIMES.find(([v]) => v === st.time)[1].toLowerCase())}` : ""}</p>
+    return header + `
       <div class="tn-list">${three.map((i) => {
         const why = because(S.support(i, 8)), saved = watch.includes(imdbOf(i));
         return `<div class="tn"><button class="tn-poster" data-x="open:${i}" aria-label="Open ${esc(title(i))}">${poster(i, "w185")}</button>
           <div class="tn-main"><button class="tn-title" data-x="open:${i}">${esc(title(i))}</button>
             <div class="tn-sub">${esc(subline(i))}</div>
-            <div class="tn-row">${matchPill(E.match(home.sc[i], S.sd(i)), true)}${logos(i, 3)}</div>
+            <div class="tn-row">${st.who === "friend" && friend ? "" : matchPill(i, home.sc[i], true)}${logos(i, 3)}</div>
             ${why ? `<p class="tn-why">${why}</p>` : ""}
             <div class="tn-actions">${trailer(i) ? `<button class="btn small light" data-x="trailer:${i}">${ICON.play}Trailer</button>` : ""}
               <button class="btn small glass" data-x="save:${i}" aria-pressed="${saved}">${ICON.save}${saved ? "Saved" : "Save"}</button></div>
           </div></div>`;
       }).join("")}</div>
-      <div class="tn-foot"><button class="btn glass" data-x="change">Change</button>
-        ${results.length > 3 ? `<button class="primary" data-x="more">3 more</button>` : ""}</div>`;
+      ${results.length > 3 ? `<div class="tn-foot"><button class="primary" data-x="more">More picks</button></div>` : ""}`;
   };
-  const act = await openSheet(form(), (x) => {
+  const act = await openSheet(shown(), (x) => {
     if (x.startsWith("opt:")) {
       const [, g, v] = x.split(":");
       st[g] = g === "time" ? Number(v) : v;
@@ -1473,6 +1520,9 @@ async function openTonight() {
     }
     if (x === "go") {
       st.mine = $("tn-mine")?.checked ?? false;
+      prefs.tonight = { mood: st.mood, time: st.time, mine: prefs.services.length ? st.mine : saved?.mine,
+        friendId: st.who === "friend" ? friend.id : null };
+      savePrefs();
       results = tonightPicks(st); at = 0;
       replaceContent(card(), CLOSE + shown());
       card().scrollTop = 0;
@@ -1521,7 +1571,7 @@ function renderWatch() {
   });
   setBackdrop(items[0] ?? -1);
   $("watch").innerHTML = items.length ? items.map((i) => `<button class="gtile${picking && watchSel.has(i) ? " sel" : ""}" data-i="${i}"${picking ? ` aria-pressed="${watchSel.has(i)}"` : ""}>
-      ${poster(i, "w342")}<div class="gmatch">${matchPill(E.match(sc[i], S.sd(i)), true)}</div>
+      ${poster(i, "w342")}<div class="gmatch">${matchPill(i, sc[i], true)}</div>
       ${picking ? `<span class="check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>` : ""}
       <div class="gt">${esc(title(i))}</div><div class="gs">${esc([year(i), hm(runtime(i))].filter(Boolean).join(" · "))}</div></button>`).join("")
     : all ? `<div class="empty" style="grid-column:1/-1">None of your saved films are on your services right now.</div>`
@@ -1565,12 +1615,22 @@ function endWatchPick() {
 }
 
 function search(q) {
-  if (!fullReady) return renderWaiting();
+  if (rateKnownTitles) {
+    $("known-picks").hidden = S.rated < 3;
+    if (!q.trim()) {
+      $("browse").innerHTML = "";
+      $("results").innerHTML = "";
+      return;
+    }
+  } else if (!fullReady) return renderWaiting();
   if (!q.trim()) { renderBrowse(); return; }
   $("browse").innerHTML = "";
   titles ??= new Titles(E.films.title, E.films.votes);
   const sc = S.scores();
-  $("results").innerHTML = titles.find(q).map((i) => filmRow(i, sc)).join("") || `<li class="empty">Couldn't find that one.<br>Try another spelling?</li>`;
+  const rows = titles.find(q).map((i) => filmRow(i, sc, { scale: rateKnownTitles })).join("")
+    || (fullReady ? `<li class="empty">Couldn't find that one.<br>Try another spelling?</li>` : `<li class="empty">Searching the rest of the catalogue…</li>`);
+  if (rateKnownTitles) replaceContent($("results"), rows);
+  else $("results").innerHTML = rows;
 }
 
 /** Build the Search index in small slices once the app has settled, so the first
@@ -1586,7 +1646,7 @@ function warmSearch() {
  *  so another is one tap away. */
 function filmRow(i, sc, { scale = false } = {}) {
   const a = S.answers.get(i), l = a != null ? labelOf(a) : null;
-  if (l && scale) {
+  if (scale) {
     const crown = isFav(i) ? `<span class="fav-mark" role="img" aria-label="All-time favourite">${ICON.crown}</span>` : "";
     return `<li class="row" data-i="${i}">${poster(i, "w154")}
       <div class="row-main"><button class="row-title">${esc(title(i))}</button>${crown}<div class="row-sub">${esc(subline(i))}</div>
@@ -1595,7 +1655,7 @@ function filmRow(i, sc, { scale = false } = {}) {
       </div></li>`;
   }
   const end = l ? `<button class="rtag" data-change="${i}" style="--rc:${COLORS[l]}" aria-label="${YOURS[l]}. Change your rating">${SHORT[l]}${ICON.down}</button>`
-    : S.rated >= 3 ? matchPill(E.match(sc[i], S.sd(i)), true, "") : "";
+    : matchPill(i, sc[i], true);
   const saved = !l && watch.includes(imdbOf(i));
   return `<li class="row" data-i="${i}">${poster(i, "w154")}
     <div class="row-main"><button class="row-title">${esc(title(i))}</button><div class="row-sub">${esc(subline(i))}</div></div>
@@ -2067,13 +2127,36 @@ function receiveTaste() {
 
 // ---------------------------------------------------------------- import
 
+let importGeneration = 0;
+
+function importStatus(message, busy = false) {
+  $("import-file").disabled = busy;
+  const welcomeInput = $("home").querySelector("[data-import-ratings]");
+  if (welcomeInput) welcomeInput.disabled = busy;
+  for (const id of ["import-result", "home-import-result"]) {
+    const el = $(id);
+    el.textContent = message;
+    el.hidden = !message;
+  }
+}
+
+function resetImport() {
+  importGeneration++;
+  importStatus("");
+}
+
 async function importFile(file) {
-  if (!fullReady) return toast("Still loading the film catalogue. Try again in a moment.");
-  const res = $("import-result");
-  res.hidden = false;
-  res.textContent = "Reading…";
+  if ($("import-file").disabled) return;
+  const generation = importGeneration;
   try {
+    if (!fullReady) {
+      importStatus("Your file is ready. Waiting for the film catalogue…", true);
+      await ensureCatalogue();
+      if (generation !== importGeneration) return;
+    }
+    importStatus("Reading your ratings…", true);
     const { ratings, seen, saves, logs, missing } = await readImport(file, E);
+    if (generation !== importGeneration) return;
     if (!ratings.length && !seen.length && !saves.length && !logs.length) throw new Error("no films found in it");
     const has = new Map(answers.map(([id, a]) => [id, a]));
     let added = 0, kept = 0;
@@ -2107,12 +2190,12 @@ async function importFile(file) {
     const n = (k, one, many) => `${k.toLocaleString()} ${k === 1 ? one : many}`;
     const got = [added && n(added, "rating", "ratings"), seen.length && n(seen.length, "watched film", "watched films"),
       saves.length && n(saves.length, "watchlist film", "watchlist films"), dated && n(dated, "diary entry", "diary entries")].filter(Boolean);
-    res.textContent = (got.length ? `Imported ${and(got)}.` : "Nothing new to import.")
+    importStatus((got.length ? `Imported ${and(got)}.` : "Nothing new to import.")
       + (kept ? ` ${n(kept, "film was", "films were")} already rated here, so we kept your answer${kept === 1 ? "" : "s"}.` : "")
-      + (missing ? ` We couldn't find ${n(missing, "film", "films")} from the file.` : "");
+      + (missing ? ` We couldn't find ${n(missing, "film", "films")} from the file.` : ""));
     refresh();
   } catch (err) {
-    res.textContent = `Couldn't import that file: ${err.message}.`;
+    if (generation === importGeneration) importStatus(fullReady ? `Couldn't import that file: ${err.message}.` : "Couldn't load the catalogue. Reconnect and choose the file again.");
   }
 }
 
@@ -2120,7 +2203,7 @@ async function importFile(file) {
 
 // A backup is every stored key (K), as saved: {app, version, saved, data: {key: value}}.
 const CLEAN = { [K.answers]: clean.answers, [K.hidden]: clean.ids, [K.snoozed]: clean.snoozed, [K.skipLog]: clean.skipLog, [K.watch]: clean.ids, [K.seen]: clean.ids,
-  [K.friends]: clean.friends, [K.queue]: clean.ids, [K.diary]: clean.diary, [K.favs]: clean.favs };
+  [K.friends]: clean.friends, [K.queue]: clean.ids, [K.diary]: clean.diary, [K.favs]: clean.favs, [K.comparisons]: clean.comparisons };
 
 function renderBackup() {
   const n = answers.filter(([, a]) => a != null).length;
@@ -2208,6 +2291,7 @@ async function restoreBackup(file) {
     store.set(K.diary, union(diary, list(K.diary), ([id, date]) => `${id}|${date}`));
     store.set(K.friends, union(friends, list(K.friends), (f) => f.id));
     store.set(K.favs, union(favs, list(K.favs)).slice(0, FAVS_MAX));   // ones not loved here drop out on reload
+    store.set(K.comparisons, clean.comparisons([...comparisons, ...list(K.comparisons)]));
     const theirs = clean.prefs(d[K.prefs]);
     store.set(K.prefs, { ...prefs, services: prefs.services.length ? prefs.services : theirs.services, name: prefs.name || theirs.name });
   }
@@ -2217,8 +2301,15 @@ async function restoreBackup(file) {
 
 // ---------------------------------------------------------------- navigation
 
-function show(v) {
+function show(v, { knownTitles = false } = {}) {
   view = v;
+  rateKnownTitles = v === "search" && knownTitles;
+  if (v === "search") {
+    $("search-heading").textContent = rateKnownTitles ? "Rate films I know" : "Find your next film";
+    $("search-intro").textContent = rateKnownTitles ? "Find a title and tap your rating." : "Follow a title, a mood, or a little curiosity.";
+    $("known-picks").hidden = !rateKnownTitles || S.rated < 3;
+    if (rateKnownTitles) $("q").value = "";
+  }
   watchSel = null;
   document.body.dataset.view = v;
   document.querySelectorAll(".view").forEach((s) => { s.hidden = s.id !== `view-${v}`; });
@@ -2234,7 +2325,7 @@ function show(v) {
 }
 
 function refresh() {
-  if (!fullReady && (view === "search" || (view === "home" && S.rated >= 3))) return renderWaiting();
+  if (!fullReady && ((view === "search" && !rateKnownTitles) || (view === "home" && S.rated >= 3))) return renderWaiting();
   if (view === "home") renderHome();
   else if (view === "rate") renderRate();
   else if (view === "wall") renderWall();
@@ -2244,7 +2335,7 @@ function refresh() {
   else if (view === "settings") renderSettings();
 }
 
-/** Search and picks need every film, which a new visitor is still downloading. */
+/** Full-catalogue browse and personalized picks wait for the rest of a quick-start download. */
 function renderWaiting() {
   if (view === "search") {
     $("browse").innerHTML = "";
@@ -2273,8 +2364,8 @@ function wire() {
     if (wallSel.has(i)) wallSel.delete(i); else wallSel.add(i);
     renderWall();
   });
-  $("wall-go").addEventListener("click", finishWall);
-  $("wall-none").addEventListener("click", () => { wallSel.clear(); finishWall(); });
+  $("wall-go").addEventListener("click", () => finishWall());
+  $("wall-none").addEventListener("click", () => { wallSel.clear(); finishWall(true); });
 
   $("rate-stage").addEventListener("click", (ev) => {
     const card = ev.target.closest(".fcard.front:not(.leaving):not(.gone)");
@@ -2315,6 +2406,11 @@ function wire() {
     else if ((b = at("[data-save]"))) homeSave(n(b, "save"));
     else if ((b = at("[data-skip]"))) homeSkip(n(b, "skip"));
     else if ((b = at("[data-info]"))) openFilm(n(b, "info"));
+    else if (at("[data-compare]")) comparePicks();
+    else if (at("[data-known-titles]")) {
+      show("search", { knownTitles: true });
+      $("q").focus({ preventScroll: true });
+    }
     else if (at("[data-tonight]")) openTonight();
     else if (at("[data-wall]")) openWall();
     else if ((b = at(".hero, .stile"))) openFilm(n(b, "i"));
@@ -2413,7 +2509,8 @@ function wire() {
     prefs.services = [...set]; savePrefs(); markDirty();
     b.setAttribute("aria-pressed", String(on));
   });
-  $("import-file").addEventListener("change", (ev) => {
+  document.addEventListener("change", (ev) => {
+    if (!ev.target.matches("input[data-import-ratings]")) return;
     const file = ev.target.files?.[0];
     if (file) importFile(file);
     ev.target.value = "";
@@ -2456,7 +2553,9 @@ function wire() {
   $("unhide").addEventListener("click", () => { hidden.clear(); saveAll(); renderSettings(); });
   $("reset").addEventListener("click", () => {
     if (!confirm("Delete all your ratings, watchlist, diary and imports, and start over?")) return;
+    resetImport();
     answers = []; hidden.clear(); snoozed.clear(); skipLog.clear(); watch = []; seenOnly.clear(); diary = []; rateQueue = []; rateStack = []; favs = [];
+    comparisons = []; store.set(K.comparisons, comparisons);
     store.set(K.snoozed, []); store.set(K.skipLog, []); store.set(K.favs, favs);
     store.set(K.diary, diary); saveQueue(); saveAll();
     prefs.seed = newSeed(); savePrefs(); rebuild(); show("rate");
@@ -2470,6 +2569,12 @@ const getJson = (f, count) => fetch(`data/${f}?v=${dataV}`).then((r) => (r.ok ? 
 /** Films with no poster are never shown (only once posters are known at all). */
 function markNoArt() {
   if (posters.some(Boolean)) for (let i = 0; i < E.n; i++) if (!posters[i]) noArt.add(i);
+}
+
+function ensureCatalogue() {
+  if (fullReady) return Promise.resolve();
+  catalogueLoad ??= loadEverything(E.meta).finally(() => { catalogueLoad = null; });
+  return catalogueLoad;
 }
 
 /** After a quick start: bring in every film, posters and streaming data, then let Search and
@@ -2486,9 +2591,10 @@ async function loadEverything(meta, tries = 4) {
     fullReady = true;
     warmSearch();
     refresh();
-  } catch {
-    if (tries > 1) setTimeout(() => loadEverything(meta, tries - 1), 5000);
-    else toast("Couldn't load the whole film catalogue. Check your connection and reopen the app.");
+  } catch (err) {
+    if (tries <= 1) throw err;
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    return loadEverything(meta, tries - 1);
   }
 }
 
@@ -2544,7 +2650,7 @@ async function start() {
       else extrasP.then((x) => { useExtras(x); markDirty(); if (S && view !== "rate" && view !== "wall") refresh(); });   // arrives in the background
     }
     markNoArt();
-    if (quick) loadEverything(meta);
+    if (quick) ensureCatalogue().catch(() => toast("Couldn't load the whole film catalogue. Check your connection and reopen the app."));
   } catch (err) {
     $("loading-text").textContent = `Couldn't load films (${err.message}). Check your connection and try again.`;
     $("retry").hidden = false;
