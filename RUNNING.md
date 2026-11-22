@@ -1,6 +1,6 @@
 # Use Kael on Mac and iPhone
 
-[Open Kael](https://kael-movie-picks.mutedseal32.chatgpt.site/) in Safari and sign in with the ChatGPT account that owns Kael. You can use it on an iPhone even while your Mac is off.
+[Open Kael](https://kael-movie-picks.mutedseal32.chatgpt.site/) in Safari. You can use it on an iPhone even while your Mac is off.
 
 ## Install the app
 
@@ -26,7 +26,7 @@ If you have ratings saved in an older Kael installation, export a backup from th
 
 The private `gwilltsherman-byte/paulinekael` repository contains the source on
 `main`, the built app on `site`, and film lookup caches on `build-cache`.
-The owner-only ChatGPT Site hosts a copy of the built app.
+Anyone with the app link can open the hosted copy directly.
 
 The **Refresh films and publish app** workflow updates the catalogue weekly
 and can be run from Actions. It uses the existing model files. An optional
