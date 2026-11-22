@@ -1,1 +1,1 @@
-[Open Kael](https://gwilltsherman-byte.github.io/paulinekael/)
+[Open Kael](https://kael-movie-picks.mutedseal32.chatgpt.site/)

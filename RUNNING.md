@@ -1,11 +1,10 @@
 # Use Kael on Mac and iPhone
 
-[Open Kael](https://gwilltsherman-byte.github.io/paulinekael/) in Safari. The app runs on GitHub Pages and works with
-cellular data or any Wi-Fi. Your Mac does not need to stay on.
+[Open Kael](https://kael-movie-picks.mutedseal32.chatgpt.site/) in Safari and sign in with the ChatGPT account that owns Kael. You can use it on an iPhone even while your Mac is off.
 
 ## Install the app
 
-1. Open [Kael](https://gwilltsherman-byte.github.io/paulinekael/) in Safari.
+1. Open [Kael](https://kael-movie-picks.mutedseal32.chatgpt.site/) in Safari.
 2. **iPhone:** choose **Share > Add to Home Screen**, then **Add**.
    If offered, leave **Open as Web App** enabled.
 3. **Mac with macOS Sonoma 14 or later:** choose **File > Add to Dock**, then **Add**.
@@ -21,18 +20,16 @@ you close and reopen Kael. They do not sync automatically between devices.
 In **Settings > Backup**, save a backup before clearing app data or moving to
 another device, then restore that file in the installed copy there.
 
-If you used the former `kael-pages` app, save a backup from that copy before
-switching installed apps. Open the new Kael app and restore the backup.
+If you have ratings saved in an older Kael installation, export a backup from that copy if it still opens. Restore the backup in the new app to bring those ratings across.
 
 ## One repository
 
-The public `gwilltsherman-byte/paulinekael` repository contains the source on
+The private `gwilltsherman-byte/paulinekael` repository contains the source on
 `main`, the built app on `site`, and film lookup caches on `build-cache`.
-GitHub Pages serves `site` from `/(root)`. A separate publishing repository
-is not needed.
+The owner-only ChatGPT Site hosts a copy of the built app.
 
 The **Refresh films and publish app** workflow updates the catalogue weekly
-and can be run from Actions. It uses the existing model files; the optional
+and can be run from Actions. It uses the existing model files. An optional
 `TMDB_TOKEN` secret supplies posters and streaming details. New builds publish
 to this repository's `site` branch using ordinary commits.
 

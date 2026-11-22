@@ -1,4 +1,2 @@
 User-agent: *
-Allow: /
-
-Sitemap: https://gwilltsherman-byte.github.io/paulinekael/sitemap.xml
+Disallow: /
