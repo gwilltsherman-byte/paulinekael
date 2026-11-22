@@ -118,10 +118,35 @@ test("CSV details: quotes, commas and newlines inside fields, a BOM, CRLF line e
   assert.equal(r.missing, 0);
 });
 
-test("ratings are kept inside 0.5 to 5; blank or zero ratings are 'watched', not rated", async () => {
+test("invalid IMDb scores leave the film unknown, even if it has a public rating", async () => {
   const r = await readImport(file("ratings.csv", csv("Const,Your Rating", "tt0111161,12", "tt0468569,0", "tt0211915,")), E);
-  assert.deepEqual(r.ratings, [[at("The Shawshank Redemption", 1994), 5]]);
-  assert.deepEqual(r.seen.sort(), [at("The Dark Knight", 2008), at("Amélie", 2001)].sort());
+  assert.deepEqual(r.ratings, []);
+  assert.deepEqual(r.seen, []);
+  assert.equal(r.invalidRatings, 3);
+  const blank = await readImport(file("ratings.csv", csv("Const,Your Rating,IMDb Rating", "tt0111161,,9.3")), E, "imdb");
+  assert.deepEqual(blank.ratings, []);
+  assert.equal(blank.invalidRatings, 1);
+});
+
+test("IMDb imports rely on headers and exact title IDs and keep the first valid score per film", async () => {
+  const body = csv("\uFEFFConst,Your Rating,Date Rated,URL,IMDb Rating",
+    "tt0111161,1,2024-04-05,,9.3", "tt0111161,8,2024-04-05,,9.3",
+    "nm0468569,7,2024-04-05,,8", "wrong-tt0111161,8,2024-04-05,,9.3",
+    ",7,2024-04-05,https://www.imdb.com/title/tt0468569/?ref_=export,8.2",
+    ",7,2024-04-05,https://example.org/title/tt0211915/,6.1");
+  const r = await readImport(file("my-watchlist-diary.csv", body), E, "imdb");
+  assert.deepEqual(r.ratings, [[at("The Shawshank Redemption", 1994), .5], [at("The Dark Knight", 2008), 3.5]]);
+  assert.equal(r.missing, 3);
+  assert.deepEqual([r.seen, r.saves, r.logs], [[], [], []]);
+});
+
+test("the IMDb picker requires personal ratings and accepts empty valid exports", async () => {
+  const watchlist = file("watchlist.csv", csv("Const,Title,IMDb Rating", "tt0111161,Shawshank,9.3"));
+  await assert.rejects(readImport(watchlist, E), /IMDb.*Your Ratings/);
+  await assert.rejects(readImport(file("ratings.csv", csv("Name,Year,Rating", "Heat,1995,4")), E, "imdb"), /IMDb.*Your Ratings/);
+  await assert.rejects(readImport(file("export.zip", zip([]), "application/zip"), E, "imdb"), /IMDb.*Your Ratings/);
+  const empty = await readImport(file("ratings.csv", "Const,Your Rating\r\n"), E, "imdb");
+  assert.deepEqual(empty.ratings, []);
 });
 
 test("things that aren't exports are refused or empty, never a crash", async () => {

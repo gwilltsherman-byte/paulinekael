@@ -238,15 +238,14 @@
 
       <div class="panel">
         <h2>Import your ratings</h2>
-        <p>From Letterboxd (export .zip, including your diary) or IMDb (ratings .csv). The more Kael knows about what you've watched, the better your picks.</p>
-        <label class="primary file-btn">
-          <input type="file" id="import-file" data-import-ratings accept=".zip,.csv,text/csv,application/zip">Choose export file
-        </label>
+        <div class="import-actions">
+          <a class="primary" href="#imdb-import">Import IMDb ratings</a>
+          <label class="btn glass file-btn">Import Letterboxd<input type="file" id="import-file" data-import-ratings accept=".zip,.csv,text/csv,application/zip"></label>
+        </div>
         <p id="import-result" class="import-result" role="status" hidden></p>
         <details>
-          <summary>How to export</summary>
-          <p><b>Letterboxd:</b> letterboxd.com → Settings → Import &amp; Export → Export your data, then choose the .zip here.</p>
-          <p><b>IMDb:</b> imdb.com → Your Ratings → ⋯ → Export, then choose the .csv here.</p>
+          <summary>How to export from Letterboxd</summary>
+          <p>In Letterboxd, open Settings → Import &amp; Export → Export your data. Choose the downloaded .zip to include your diary, or a ratings .csv for ratings only.</p>
         </details>
       </div>
 
@@ -265,6 +264,20 @@
         <button id="reset" class="danger">Start over</button>
       </div>
       <p class="fine">Film data: <a href="https://grouplens.org/datasets/movielens/" target="_blank" rel="noopener">MovieLens</a>, <a href="https://developer.imdb.com/non-commercial-datasets/" target="_blank" rel="noopener">IMDb</a> and <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a>. Posters, trailers and streaming info via <a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a>; streaming data by <a href="https://www.justwatch.com" target="_blank" rel="noopener">JustWatch</a>. This product uses the TMDB API but is not endorsed or certified by TMDB. For personal, non-commercial use. <span id="updated"></span></p>
+    </section>
+
+    <section id="view-imdb-import" class="view scroll" hidden>
+      <header class="head"><div class="head-left">
+        <button class="icon-round" id="imdb-back" data-go="home" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <h1 id="imdb-heading" tabindex="-1">Import IMDb ratings</h1>
+      </div></header>
+      <div class="panel">
+        <p>Open <a href="https://www.imdb.com/list/ratings/" target="_blank" rel="noopener">Your Ratings on IMDb</a>, select <strong>Export</strong> at the top right, and download your CSV. If you already have the file, choose it below.</p>
+        <label class="primary file-btn">Choose IMDb ratings CSV<input type="file" id="imdb-file" data-import-ratings="imdb" accept=".csv,text/csv"></label>
+        <p class="import-note">Kael reads the file on this device and keeps any ratings you’ve already entered here.</p>
+        <p id="imdb-result" class="import-result" role="status" hidden></p>
+        <button id="imdb-picks" class="btn glass" data-go="home" hidden>See your picks</button>
+      </div>
     </section>
 
     <nav class="tabbar" aria-label="Main">

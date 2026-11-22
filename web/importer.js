@@ -41,7 +41,7 @@ function parseCSV(text) {
   if (field || row.length) { row.push(field); rows.push(row); }
   const [head = [], ...body] = rows;
   const keys = head.map((h) => h.replace(/^﻿/, "").trim());
-  return body.filter((r) => r.length > 1).map((r) => Object.fromEntries(keys.map((h, j) => [h, r[j] ?? ""])));
+  return { keys, rows: body.filter((r) => r.length > 1).map((r) => Object.fromEntries(keys.map((h, j) => [h, r[j] ?? ""]))) };
 }
 
 export function norm(s) {
@@ -74,26 +74,42 @@ function matchFilm(E, name, yr) {
 }
 
 /** { ratings: [[film, stars]], seen: [film], saves: [film], logs: [[film, "YYYY-MM-DD", stars]],
- *  missing: count }. Letterboxd diary rows become logs (and ratings too only when
+ *  missing, invalidRatings }. Letterboxd diary rows become logs (and ratings too only when
  *  there's no ratings.csv, so films aren't counted twice). */
-export async function readImport(file, E) {
-  const files = /\.zip$/i.test(file.name) || file.type.includes("zip")
-    ? await unzip(await file.arrayBuffer())
-    : new Map([[file.name.toLowerCase(), await file.text()]]);
+export async function readImport(file, E, source = "auto") {
+  const zipped = /\.zip$/i.test(file.name) || file.type.includes("zip");
+  const imdbHelp = "choose the CSV exported from IMDb’s Your Ratings page";
+  if (source === "imdb" && zipped) throw new Error(imdbHelp);
+  const files = zipped ? await unzip(await file.arrayBuffer()) : new Map([[file.name.toLowerCase(), await file.text()]]);
   const ratings = [], seen = [], saves = [], logs = [];
   const hasRatings = [...files.keys()].some((n) => /ratings/.test(n));
-  let missing = 0;
+  let missing = 0, invalidRatings = 0;
   for (const [name, text] of files) {
+    const { keys, rows } = parseCSV(text);
+    if (source === "imdb" || keys.includes("Const") || keys.includes("Your Rating")) {
+      if (!keys.includes("Your Rating") || !keys.includes("Const") && !keys.includes("URL")) throw new Error(imdbHelp);
+      const importedIds = new Set();
+      for (const r of rows) {
+        const score = r["Your Rating"].trim();
+        if (!/^(?:10|[1-9])$/.test(score)) { invalidRatings++; continue; }
+        const ident = r.Const?.trim();
+        const match = ident ? /^tt(\d+)$/i.exec(ident)
+          : /^https?:\/\/(?:(?:www|m)\.)?imdb\.com\/title\/tt(\d+)(?:[/?#]|$)/i.exec(r.URL?.trim() || "");
+        if (!match) { missing++; continue; }
+        const id = Number(match[1]);
+        if (importedIds.has(id)) continue;
+        importedIds.add(id);
+        const i = E.byImdb.get(id);
+        if (i === undefined) { missing++; continue; }
+        ratings.push([i, Number(score) / 2]);
+      }
+      continue;
+    }
     const isDiary = /diary/.test(name);
-    for (const r of parseCSV(text)) {
-      let i, stars = null;
-      if (r.Const) {                               // IMDb: exact id, rating out of 10
-        i = E.byImdb.get(Number(r.Const.replace(/\D/g, "")));
-        stars = Number(r["Your Rating"]) / 2 || null;
-      } else if (r.Name) {                         // Letterboxd: title + year, rating out of 5
-        i = matchFilm(E, r.Name, r.Year);
-        stars = Number(r.Rating) || null;
-      } else continue;
+    for (const r of rows) {
+      if (!r.Name) continue;
+      const i = matchFilm(E, r.Name, r.Year);
+      const stars = Number(r.Rating) || null;
       if (i === undefined) { if (!isDiary) missing++; continue; }
       if (isDiary) {
         const date = (r["Watched Date"] || r.Date || "").slice(0, 10);
@@ -105,5 +121,5 @@ export async function readImport(file, E) {
       else seen.push(i);
     }
   }
-  return { ratings, seen, saves, logs, missing };
+  return { ratings, seen, saves, logs, missing, invalidRatings };
 }
