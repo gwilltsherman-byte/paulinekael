@@ -1,10 +1,10 @@
 # Use Kael on Mac and iPhone
 
-[Open Kael](https://kael-movie-picks.mutedseal32.chatgpt.site/) in Safari. You can use it on an iPhone even while your Mac is off.
+[Open Kael](https://gwilltsherman-byte.github.io/paulinekael/) in Safari. You can use it on an iPhone even while your Mac is off.
 
 ## Install the app
 
-1. Open [Kael](https://kael-movie-picks.mutedseal32.chatgpt.site/) in Safari.
+1. Open [Kael](https://gwilltsherman-byte.github.io/paulinekael/) in Safari.
 2. **iPhone:** choose **Share > Add to Home Screen**, then **Add**.
    If offered, leave **Open as Web App** enabled.
 3. **Mac with macOS Sonoma 14 or later:** choose **File > Add to Dock**, then **Add**.
@@ -34,12 +34,14 @@ If you have ratings saved in an older Kael installation, export a backup from th
 
 The private `gwilltsherman-byte/paulinekael` repository contains the source on
 `main`, the built app on `site`, and film lookup caches on `build-cache`.
-Anyone with the app link can open the hosted copy directly.
+GitHub Pages serves the built app when Pages is enabled for the repository.
 
 The **Refresh films and publish app** workflow updates the catalogue weekly
 and can be run from Actions. It uses the existing model files. An optional
 `TMDB_TOKEN` secret supplies posters and streaming details. New builds publish
-to this repository's `site` branch using ordinary commits.
+to this repository's `site` branch and deploy to Pages when enabled.
+
+For the first deployment, select **GitHub Actions** under **Settings → Pages → Build and deployment → Source**. Then run **Refresh films and publish app** from the Actions tab on `main`.
 
 ## Optional local development
 
