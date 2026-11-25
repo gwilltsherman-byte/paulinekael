@@ -19,6 +19,8 @@ Choose **Not seen** to move past a quiz card. Kael remembers the answer and can 
 
 When a lesser-known film scores close to the usual third pick, Kael can try it in that spot. **Settings > Home discoveries** shows how many displayed picks you watched and rated four stars or higher within 30 days, along with follow-up coverage. Diary entries and optional follow-up answers stay on your device.
 
+In **Settings**, **Try the quiz comparison** assigns this device to the usual quiz or to questions chosen for their effect on the top three picks. The comparison starts after three ratings. Turn it off to return to the usual quiz.
+
 ## Saved ratings and backups
 
 Ratings, favourites, your watchlist, diary and settings stay saved on this device when

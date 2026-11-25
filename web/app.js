@@ -1451,7 +1451,8 @@ function renderDiscoveryResults() {
   const rows = discoveryRows();
   panel.hidden = !rows.length;
   if (!rows.length) return;
-  const mature = rows.filter((row) => daysBetween(row.day, isoDay()) > discoveryDays);
+  const today = isoDay();
+  const mature = rows.filter((row) => daysBetween(row.day, today) > discoveryDays);
   const pending = rows.length - mature.length;
   const results = mature.map((row) => ({ row, result: discoveryOutcome(row) }));
   const lines = ["usual", "discovery"].map((arm) => {
@@ -1459,13 +1460,17 @@ function renderDiscoveryResults() {
     const hits = group.filter(({ result }) => result === "above").length;
     const answered = group.filter(({ result }) => result && result !== "unrated").length;
     const n = group.length;
-    return `<p><b>${arm === "usual" ? "Usual picks" : "Lesser-known picks"}</b> · ${n ? `${hits} of ${n} visits led to a confirmed 4+ watch (${Math.round(hits * 100 / n)} per 100). Follow-up available for ${answered} of ${n}.` : "No completed 30-day windows yet."}</p>`;
+    return `<p><b>${arm === "usual" ? "Usual picks" : "Lesser-known picks"}</b> · ${n ? `${hits} of ${n} ${n === 1 ? "visit" : "visits"} led to a confirmed 4+ watch (${Math.round(hits * 100 / n)} per 100). Follow-up available for ${answered} of ${n}.` : "No completed 30-day windows yet."}</p>`;
   });
-  const next = results.find(({ result, row }) => (!result || result === "unrated") && idx(row.id) !== undefined);
+  const unanswered = (row) => idx(row.id) !== undefined && !["above", "below", "unwatched"].includes(discoveryOutcome(row));
+  const next = mature.find(unanswered) ?? rows.find((row) => daysBetween(row.day, today) <= discoveryDays && unanswered(row));
+  const complete = next && daysBetween(next.day, today) > discoveryDays;
+  const choices = [["above", "Watched · 4+ stars"], ["below", "Watched · below 4"]];
+  if (complete) choices.push(["unwatched", "Didn't watch"]);
   panel.innerHTML = `<h2>Home discoveries</h2><p>When a lesser-known film scores close to the usual third pick, Kael tries one of the two. Results use visits where that card was visible. Your diary and answers stay on this device.</p>${lines.join("")}`
     + (pending ? `<p>${pending} ${pending === 1 ? "visit is" : "visits are"} still within 30 days.</p>` : "")
-    + (next ? `<p>Within 30 days after ${next.row.day}, did you watch <b>${esc(title(idx(next.row.id)))}</b>?</p>
-      <div class="opts" data-discovery-visit="${next.row.visit}">${[["above", "Watched · 4+ stars"], ["below", "Watched · below 4"], ["unwatched", "Didn't watch"]].map(([value, label]) => `<button class="opt" data-outcome="${value}">${label}</button>`).join("")}</div>` : "");
+    + (next ? `<p>${complete ? "In the 30 days after" : "Since"} seeing <b>${esc(title(idx(next.id)))}</b> on ${next.day}, did you watch it?</p>
+      <div class="opts" data-discovery-visit="${next.visit}">${choices.map(([value, label]) => `<button class="opt" data-outcome="${value}">${label}</button>`).join("")}</div>` : "");
 }
 
 function updateDiscovery(visit, outcome) {

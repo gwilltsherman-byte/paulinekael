@@ -43,5 +43,41 @@
       -0.01006031679129643,
       0.017248097563982864
     ]
-  }
+  },
+  "test5000": {
+    "catalogueBuild": "20261116194147",
+    "users": 5000,
+    "budgetSeconds": 60,
+    "costSeconds": {
+      "rated": 4,
+      "unseen": 2
+    },
+    "metric": "Historical 4+ among three popular withheld films; simulated Rate-card time",
+    "eligibleUsers": 5000,
+    "bothReady": 4604,
+    "arms": {
+      "information": {
+        "ready": 4604,
+        "averageCards": 21.7846,
+        "averageRatings": 7.9436,
+        "averageSeconds": 59.4564,
+        "historicalFourPlusShareAmongPaired": 0.8140023168259477,
+        "historicalFourPlusShareIncludingUnreadyAsZero": 0.7495333333333327
+      },
+      "decision": {
+        "ready": 4604,
+        "averageCards": 22.1358,
+        "averageRatings": 7.618,
+        "averageSeconds": 59.5076,
+        "historicalFourPlusShareAmongPaired": 0.810816681146828,
+        "historicalFourPlusShareIncludingUnreadyAsZero": 0.7465999999999993
+      }
+    },
+    "pairedDifference": -0.0031856356791196056,
+    "approximate95PercentPairedInterval": [
+      -0.007302762498165279,
+      0.0009314911399260673
+    ]
+  },
+  "rollout": "The validation and held-out estimates differ in direction, and the held-out interval includes zero. Ordinary quiz behavior stays the default. Settings offers an opt-in, on-device randomized comparison."
 }

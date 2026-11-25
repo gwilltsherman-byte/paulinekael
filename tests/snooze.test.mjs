@@ -380,7 +380,7 @@ test("the third pick changes in one slot only and only an actual impression star
   h.api.renderDiscoveryResults();
   assert.match(h.elements.get("discovery-results").innerHTML, /Follow-up available for 0 of 1/);
   h.api.updateDiscovery("visit-b", "above");
-  assert.match(h.elements.get("discovery-results").innerHTML, /1 of 1 visits led to a confirmed 4\+ watch/);
+  assert.match(h.elements.get("discovery-results").innerHTML, /1 of 1 visit led to a confirmed 4\+ watch/);
   h.api.updateDiscovery("visit-b", null);
   assert.match(h.elements.get("discovery-results").innerHTML, /Follow-up available for 0 of 1/);
 });
