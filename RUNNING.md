@@ -13,6 +13,12 @@
 After the app and catalogue load, saved recommendations can open offline.
 Posters, trailers and streaming links may still need the internet.
 
+## Shape your recommendations
+
+Choose **Not seen** to move past a quiz card. Kael remembers the answer and can still recommend the film on Home or in Tonight. Use the separate Home skip control to put a recommendation aside.
+
+When a lesser-known film scores close to the usual third pick, Kael can try it in that spot. **Settings > Home discoveries** shows how many displayed picks you watched and rated four stars or higher within 30 days, along with follow-up coverage. Diary entries and optional follow-up answers stay on your device.
+
 ## Saved ratings and backups
 
 Ratings, favourites, your watchlist, diary and settings stay saved on this device when

@@ -53,6 +53,11 @@ function app({ data = {}, rated = true, engine = makeEngine({ n: 80, pool: 30 })
   }
   const context = vm.createContext({
     document, Date: Clock, Session, Titles, File,
+    IntersectionObserver: class {
+      constructor(callback) { this.callback = callback; }
+      observe() {}
+      disconnect() {}
+    },
     localStorage: {
       getItem: (key) => stored.get(key) ?? null,
       setItem(key, value) { if (failWrites) throw new Error("Storage full"); stored.set(key, value); },
@@ -73,6 +78,20 @@ function app({ data = {}, rated = true, engine = makeEngine({ n: 80, pool: 30 })
       rebuild(); renderHome();
     },
     homeSkip, renderHome, moreLike, tonightPicks, browseList, renderBrowse, search, saveBackup, toast,
+    setAnswer, rebuild, discoveryOutcome, renderDiscoveryResults, updateDiscovery,
+    nextQuestion() { return S.next(); },
+    quiz() { return S.quizPolicy; },
+    wireSettings() { wire(); renderSettings(); },
+    trial(arm, key, setup = false) {
+      if (setup) {
+        // Enough strong, lesser-known alternatives for the existing other shelves as well.
+        for (let i = 39; i < E.n; i++) { E.films.votes[i] = 400; E.bias[i] = 2; }
+        rebuild(); homeDirty = true;
+      }
+      homeVisit = { key, arm, shown: null }; homeShown = null; renderHome();
+      return homeOffer;
+    },
+    observeTile(tile) { recordDiscovery(tile); },
     setBrowse(items) { browsing = { title: "Test picks", items }; },
     state() { return { home, snoozed: [...snoozed], answers, hidden: [...hidden], watch,
       seen: [...seenOnly], rated: S.rated, mean: [...S.mean], cov: [...S.cov] }; },
@@ -309,4 +328,84 @@ test("skips saved under the old 90-day rule come back within a week", () => {
   assert.deepEqual(plain(h.api.state().snoozed), [[1005, NOW + 7 * DAY], [1006, NOW + 3 * DAY], [1007, NOW + 25 * DAY]],
     "old skips are cut to a week; ones already within a week, and repeat skips made since, are left alone");
   assert.deepEqual(h.read(SKIPS), [[1005, NOW + 7 * DAY], [1006, NOW + 3 * DAY], [1007, NOW + 25 * DAY]]);
+});
+
+test("Not seen removes a film from the quiz but keeps it eligible for Home and Tonight", () => {
+  const h = app(), before = h.api.state(), i = h.api.nextQuestion();
+  assert.ok(before.home.pool.includes(i));
+  h.api.setAnswer(i, null);
+  h.api.renderHome();
+  assert.ok(h.api.state().home.pool.includes(i));
+  assert.notEqual(h.api.nextQuestion(), i);
+  assert.deepEqual(plain(h.api.state().mean), plain(before.mean));
+  const topTonight = h.api.tonightPicks({ mood: "any" })[0];
+  h.api.setAnswer(topTonight, null);
+  h.api.renderHome();
+  assert.equal(h.api.tonightPicks({ mood: "any" })[0], topTonight);
+  h.api.setAnswer(topTonight, "liked");
+  h.api.renderHome();
+  assert.ok(!h.api.state().home.pool.includes(topTonight));
+});
+
+test("the third pick changes in one slot only and only an actual impression starts follow-up", () => {
+  const h = app(), key = "mt.home-discoveries.v1";
+  const base = h.api.trial("usual", "visit-a", true);
+  assert.ok(base, "an eligible lower-vote challenger is needed");
+  const regular = h.elements.get("home").innerHTML;
+  assert.equal(h.read(key), null);
+  const alt = h.api.trial("discovery", "visit-b");
+  assert.equal(base.control, alt.control);
+  assert.equal(base.alternative, alt.alternative);
+  assert.equal(h.engine.films.votes[alt.i], 400);
+  assert.equal([...h.elements.get("home").innerHTML.matchAll(new RegExp('class="stile" data-i="' + alt.i + '"', "g"))].length, 1);
+  const indices = (html) => [...html.matchAll(/class="stile" data-i="(\d+)"/g)].map((m) => Number(m[1]));
+  const usual = indices(regular), discovery = indices(h.elements.get("home").innerHTML);
+  assert.equal(usual.length, discovery.length);
+  assert.equal(usual[1], base.i);
+  assert.equal(discovery[1], alt.i);
+  assert.deepEqual(usual.filter((_, k) => k !== 1), discovery.filter((_, k) => k !== 1));
+  const tile = { isConnected: false, dataset: { i: String(alt.i), discovery: alt.visit } };
+  h.api.observeTile(tile);
+  assert.equal(h.read(key), null);
+  tile.isConnected = true;
+  h.api.observeTile(tile);
+  h.api.observeTile(tile);
+  const rows = h.read(key);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, alt.alternative);
+  assert.equal(rows[0].control, base.control);
+  assert.equal(rows[0].arm, "discovery");
+  assert.equal(h.api.trial("usual", "visit-c"), null, "both candidate IDs cool down regardless of which was shown");
+  h.clock(NOW + 31 * DAY);
+  h.api.renderDiscoveryResults();
+  assert.match(h.elements.get("discovery-results").innerHTML, /Follow-up available for 0 of 1/);
+  h.api.updateDiscovery("visit-b", "above");
+  assert.match(h.elements.get("discovery-results").innerHTML, /1 of 1 visits led to a confirmed 4\+ watch/);
+  h.api.updateDiscovery("visit-b", null);
+  assert.match(h.elements.get("discovery-results").innerHTML, /Follow-up available for 0 of 1/);
+});
+
+test("only post-exposure diary watches in the 30-day window count", () => {
+  const h = app({ data: { "mt.diary.v1": [[1005, "2026-08-01", 5], [1005, "2026-09-01", 5],
+    [1005, "2026-10-02", 5], [1006, "2026-09-25", 3.5], [1006, "2026-10-01", 4]] } });
+  const row = { id: 1005, day: "2026-09-01" };
+  assert.equal(h.api.discoveryOutcome(row), null);
+  assert.equal(h.api.discoveryOutcome({ ...row, id: 1006 }), "above");
+  assert.equal(h.api.discoveryOutcome({ ...row, outcome: "unwatched" }), "unwatched");
+});
+
+test("experimental quiz assignment is opt-in, repeatable, and removable", () => {
+  const seed = Array.from({ length: 64 }, (_, i) => i).find((i) => Session.quizPolicy(i) === "decision");
+  const h = app({ data: { "mt.prefs.v1": { seed } } });
+  h.api.wireSettings();
+  const checkbox = h.elements.get("quiz-study"), change = (checked) => checkbox.listeners.get("change")({ target: { checked } });
+  assert.equal(checkbox.checked, false);
+  assert.equal(h.api.quiz(), "information");
+  change(true);
+  assert.equal(h.api.quiz(), "decision");
+  assert.match(h.elements.get("quiz-group").textContent, /top three/);
+  assert.equal(app({ data: h.data() }).api.quiz(), "decision");
+  change(false);
+  assert.equal(h.api.quiz(), "information");
+  assert.equal(h.read("mt.prefs.v1").quizStudy, false);
 });

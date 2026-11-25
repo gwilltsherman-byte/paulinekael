@@ -17,6 +17,7 @@ const K = {
   diary: "mt.diary.v1",      // [[imdbId, "YYYY-MM-DD", label], ...] films you logged watching
   favs: "mt.favs.v1",        // [imdbId, ...] all-time favourites, in the order added (at most FAVS_MAX)
   comparisons: "mt.comparisons.v1",  // [lower IMDb id, higher id, preferred id or null for skip, ratings so far]
+  discoveries: "mt.home-discoveries.v1", // eligible Home slot impressions and optional follow-up
   prefs: "mt.prefs.v1",
 };
 const LABELS = { loved: "Loved it", liked: "Liked it", meh: "It was OK", disliked: "Didn't like it" };
@@ -106,6 +107,20 @@ const isAnswer = (a) => a === null || (typeof a === "string" && Object.hasOwn(LA
   || (typeof a === "number" && a >= 0.5 && a <= 5);
 const asList = (v) => (Array.isArray(v) ? v : []);
 const clean = {
+  discoveries: (v) => {
+    const rows = new Map();
+    for (const row of asList(v)) {
+      if (!row || typeof row.visit !== "string" || !/^[a-z0-9-]{1,80}$/.test(row.visit)
+          || !isId(row.id) || !isDay(row.day) || !["usual", "discovery"].includes(row.arm)) continue;
+      const { visit, id, day, arm } = row;
+      if (!isId(row.control) || !isId(row.alternative) || row.control === row.alternative
+          || id !== (arm === "usual" ? row.control : row.alternative)) continue;
+      rows.set(visit, { visit, id, day, arm, control: row.control, alternative: row.alternative,
+        quiz: typeof row.quiz === "string" ? row.quiz.slice(0, 30) : "",
+        outcome: ["above", "below", "unwatched"].includes(row.outcome) ? row.outcome : null });
+    }
+    return [...rows.values()];
+  },
   ids: (v) => asList(v).filter(isId),
   skipLog: (v) => asList(v).filter((e) => Array.isArray(e) && isId(e[0]) && Number.isSafeInteger(e[1]) && e[1] > 0
     && Number.isSafeInteger(e[2]) && e[2] > 0).map(([id, n, at]) => [id, n, at]),
@@ -133,6 +148,7 @@ const clean = {
     p.services = asList(p.services).filter(isId);
     if (typeof p.name !== "string") p.name = "";
     if (p.seed != null && !Number.isInteger(p.seed)) p.seed = null;
+    p.quizStudy = p.quizStudy === true;
     return p;
   },
 };
@@ -389,6 +405,12 @@ function rebuild() {
   const list = answers.map(([id, a]) => [idx(id), a]).filter(([i]) => i !== undefined);
   S = new Session(E, list, [...seenOnly].map(idx).filter((i) => i !== undefined), prefs.seed,
     favs.map(idx).filter((i) => i !== undefined));
+  S.quizPolicy = prefs.quizStudy ? Session.quizPolicy(prefs.seed) : "information";
+  S.quizTargets = () => {
+    const shelf = home?.shelves.find((sh) => sh.title === "Top picks for you");
+    return shelf ? [home.hero, ...shelf.items.map((i, k) => k === 1 && home === homeShown && homeOffer ? homeOffer.i : i)] : [];
+  };
+  S.quizEligible = (i) => !hidden.has(imdbOf(i)) && !watch.includes(imdbOf(i)) && !isSnoozed(i) && !noArt.has(i);
 }
 
 const isLoved = (a) => a != null && E.stars(a) >= 4.5;
@@ -517,6 +539,7 @@ function setInert() {
   const sheet = !$("sheet").hidden, film = !$("film").hidden;
   document.querySelectorAll("#app > .view, #app > .tabbar, .masthead").forEach((el) => { el.inert = sheet || film; });
   $("film").inert = sheet;
+  if (!sheet && !film) observeDiscovery();
 }
 
 let dismissSheet = null;   // closes the open sheet, if there is one
@@ -708,8 +731,8 @@ let simCands = null;
 /** Films most like film i in taste, weighted a little toward ones you'd enjoy. */
 function moreLike(i, sc) {
   simCands ??= E.films.votes.reduce((out, v, j) => (v >= 1000 ? (out.push(j), out) : out), []);
-  const skip = new Set([...hidden].map(idx));
-  const cands = simCands.filter((j) => j !== i && !S.answers.has(j) && !skip.has(j) && !isSnoozed(j) && !noArt.has(j));
+  const skip = new Set([...hidden, ...watch, ...seenOnly].map(idx));
+  const cands = simCands.filter((j) => j !== i && S.answers.get(j) == null && !skip.has(j) && !isSnoozed(j) && !noArt.has(j));
   const near = E.similar(i, cands, 60);
   const score = new Map(near.map(([j, sim]) => [j, sim + 0.4 * (E.match(sc[j], S.sd(j)) - 0.5)]));
   return near.map(([j]) => j).sort((a, b) => score.get(b) - score.get(a)).slice(0, 16);
@@ -1182,7 +1205,7 @@ function buildHome() {
   const popular = [], deep = [], fresh = [];
   for (let i = 0; i < E.n; i++) {
     const v = f.votes[i];
-    if (v < 200 || S.answers.has(i) || skip.has(i) || noArt.has(i)) continue;
+    if (v < 200 || S.answers.get(i) != null || skip.has(i) || noArt.has(i)) continue;
     if (v >= 2000) popular.push(i);
     else if (sc[i] >= 3.6) deep.push(i);    // lesser-known films only matter if you'd like them
     if (f.year[i] >= now - 1 && v >= 300) fresh.push(i);
@@ -1329,21 +1352,130 @@ function heroCard(i) {
   </article>`;
 }
 
-function tile(i, withMatch = true, sc = home?.sc, eager = false) {
+function tile(i, withMatch = true, sc = home?.sc, eager = false, offer = null) {
   const m = withMatch ? `<span class="tm">${matchPill(i, sc[i], true)}</span>` : "";
-  return `<button class="stile" data-i="${i}">${poster(i, "w342", "", eager)}${m}
+  return `<button class="stile" data-i="${i}"${offer ? ` data-discovery="${offer.visit}"` : ""}>${poster(i, "w342", "", eager)}${m}
     <span class="tt">${esc(title(i))}</span><span class="ts">${esc([year(i), hm(runtime(i))].filter(Boolean).join(" · "))}</span></button>`;
 }
 
 /** The words before the film a "more like it" shelf follows from. */
 const becauseOf = (j) => (isFav(j) ? "More like your favourite" : `Because you ${E.stars(S.answers.get(j)) >= 4.5 ? "loved" : "liked"}`);
 
-function shelfHtml(sh, withMatch = true) {
+function shelfHtml(sh, withMatch = true, offer = null) {
   const head = sh.because !== undefined
     ? `<div class="because">${poster(sh.because, "w92")}<div><small>${becauseOf(sh.because)}</small><h2>${esc(title(sh.because))}</h2></div></div>`
     : `<div><h2>${esc(sh.title)}</h2>${sh.sub ? `<p>${esc(sh.sub)}</p>` : ""}</div>`;
   return `<section class="shelf"><div class="shelf-head">${head}</div>
-    <div class="shelf-row">${sh.items.map((i, k) => tile(i, withMatch && !sh.shared, home?.sc, k < 6)).join("")}</div></section>`;
+    <div class="shelf-row">${sh.items.map((i, k) => {
+      const slot = k === 1 ? offer : null;
+      return tile(slot?.i ?? i, withMatch && !sh.shared, home?.sc, k < 6, slot);
+    }).join("")}</div></section>`;
+}
+
+// Each visit to Home gets one coin flip and at most one measured third pick.
+// Build the offer only when both options qualify, before looking at the coin.
+const discoveryDays = 30;
+let homeVisit = null, homeOffer = null, discoveryObserver = null;
+const discoveryRows = () => clean.discoveries(store.get(K.discoveries, []));
+const daysBetween = (a, b) => (Date.parse(b + "T00:00Z") - Date.parse(a + "T00:00Z")) / DAY_MS;
+
+function discoveryOffer(shelf) {
+  // On browsers without viewport observation, counting only clicked cards would bias the comparison.
+  if (typeof IntersectionObserver !== "function" || !shelf || shelf.title !== "Top picks for you" || home.hero == null) return null;
+  const control = shelf.items[1];
+  if (control == null) return null;
+  const today = isoDay(), rows = discoveryRows();
+  const recent = new Set(rows.filter((row) => row.visit !== homeVisit?.key && daysBetween(row.day, today) <= discoveryDays)
+    .flatMap((row) => [row.control, row.alternative]));
+  const logged = new Set(diary.map(([id]) => id));
+  if (recent.has(imdbOf(control)) || logged.has(imdbOf(control))) return null;
+  const elsewhere = new Set(home.shelves.slice(1).flatMap((sh) => sh.items));
+  let alternative, best = -Infinity;
+  for (const i of home.pool) {
+    const votes = E.films.votes[i], score = home.key.get(i);
+    if (votes < 200 || votes >= 2000 || home.sc[i] < 4 || elsewhere.has(i) || recent.has(imdbOf(i)) || logged.has(imdbOf(i))) continue;
+    if (score > best) { best = score; alternative = i; }
+  }
+  // Both gates are in stars: a predicted 4+ and a cautious score within half a star of the usual pick.
+  if (alternative == null || best < home.key.get(control) - 0.5) return null;
+  homeVisit ??= { key: Date.now().toString(36) + "-" + Math.random().toString(36).slice(2),
+    arm: Math.random() < 0.5 ? "usual" : "discovery", shown: null };
+  const i = homeVisit.arm === "usual" ? control : alternative;
+  if (homeVisit.shown != null && homeVisit.shown !== imdbOf(i)) return null;
+  return { i, arm: homeVisit.arm, visit: homeVisit.key, control: imdbOf(control), alternative: imdbOf(alternative) };
+}
+
+function recordDiscovery(tile) {
+  if (!homeOffer || homeVisit.shown != null || view !== "home" || document.hidden || filmI >= 0 || dismissSheet
+      || !tile?.isConnected || tile.dataset.discovery !== homeOffer.visit || Number(tile.dataset.i) !== homeOffer.i) return;
+  const id = imdbOf(homeOffer.i), rows = discoveryRows();
+  if (rows.some((row) => row.visit === homeOffer.visit)) return;
+  const { visit, arm, control, alternative } = homeOffer;
+  const row = { visit, arm, control, alternative, id, day: isoDay(), quiz: S.quizPolicy || "", outcome: null };
+  if (store.set(K.discoveries, [...rows, row])) {
+    homeVisit.shown = id;
+    discoveryObserver?.disconnect();
+  }
+}
+
+function observeDiscovery() {
+  discoveryObserver?.disconnect();
+  if (!homeOffer || homeVisit.shown != null || view !== "home" || document.hidden
+      || typeof IntersectionObserver !== "function") return;
+  const tile = $("home").querySelector("[data-discovery]");
+  if (!tile) return;
+  discoveryObserver = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.target === tile && e.isIntersecting && e.intersectionRatio >= 0.5)) recordDiscovery(tile);
+  }, { threshold: 0.5 });
+  discoveryObserver.observe(tile);
+}
+
+function discoveryOutcome(row) {
+  if (row.outcome) return row.outcome;
+  // A diary date on the day of display cannot establish which happened first.
+  // The optional follow-up below can confirm those watches explicitly.
+  let watched = null;
+  for (const [id, day, rating] of diary) {
+    const age = daysBetween(row.day, day);
+    if (id !== row.id || age <= 0 || age > discoveryDays || day > isoDay()) continue;
+    if (rating != null && E.stars(rating) >= 4) return "above";
+    if (rating != null) watched = "below";
+    else watched ??= "unrated";
+  }
+  return watched;
+}
+
+function renderDiscoveryResults() {
+  const panel = $("discovery-results");
+  if (!panel) return;
+  const rows = discoveryRows();
+  panel.hidden = !rows.length;
+  if (!rows.length) return;
+  const mature = rows.filter((row) => daysBetween(row.day, isoDay()) > discoveryDays);
+  const pending = rows.length - mature.length;
+  const results = mature.map((row) => ({ row, result: discoveryOutcome(row) }));
+  const lines = ["usual", "discovery"].map((arm) => {
+    const group = results.filter(({ row }) => row.arm === arm);
+    const hits = group.filter(({ result }) => result === "above").length;
+    const answered = group.filter(({ result }) => result && result !== "unrated").length;
+    const n = group.length;
+    return `<p><b>${arm === "usual" ? "Usual picks" : "Lesser-known picks"}</b> · ${n ? `${hits} of ${n} visits led to a confirmed 4+ watch (${Math.round(hits * 100 / n)} per 100). Follow-up available for ${answered} of ${n}.` : "No completed 30-day windows yet."}</p>`;
+  });
+  const next = results.find(({ result, row }) => (!result || result === "unrated") && idx(row.id) !== undefined);
+  panel.innerHTML = `<h2>Home discoveries</h2><p>When a lesser-known film scores close to the usual third pick, Kael tries one of the two. Results use visits where that card was visible. Your diary and answers stay on this device.</p>${lines.join("")}`
+    + (pending ? `<p>${pending} ${pending === 1 ? "visit is" : "visits are"} still within 30 days.</p>` : "")
+    + (next ? `<p>Within 30 days after ${next.row.day}, did you watch <b>${esc(title(idx(next.row.id)))}</b>?</p>
+      <div class="opts" data-discovery-visit="${next.row.visit}">${[["above", "Watched · 4+ stars"], ["below", "Watched · below 4"], ["unwatched", "Didn't watch"]].map(([value, label]) => `<button class="opt" data-outcome="${value}">${label}</button>`).join("")}</div>` : "");
+}
+
+function updateDiscovery(visit, outcome) {
+  if (outcome !== null && !["above", "below", "unwatched"].includes(outcome)) return false;
+  const rows = discoveryRows(), row = rows.find((entry) => entry.visit === visit);
+  if (!row) return false;
+  row.outcome = outcome;
+  if (!store.set(K.discoveries, rows)) return false;
+  renderDiscoveryResults();
+  return true;
 }
 
 function renderHome() {
@@ -1351,8 +1483,11 @@ function renderHome() {
   const el = $("home");
   if (S.rated < 3) {
     // Not enough ratings for picks yet: say how to start, and show what's popular.
+    homeOffer = null;
+    discoveryObserver?.disconnect();
     const now = new Date().getFullYear(), f = E.films, pop = [];
-    for (let i = 0; i < E.n; i++) if (f.year[i] >= now - 2 && f.votes[i] >= 20000 && !S.answers.has(i) && !isSnoozed(i) && !noArt.has(i)) pop.push(i);
+    const blocked = new Set([...hidden, ...watch, ...seenOnly].map(idx));
+    for (let i = 0; i < E.n; i++) if (f.year[i] >= now - 2 && f.votes[i] >= 20000 && S.answers.get(i) == null && !blocked.has(i) && !isSnoozed(i) && !noArt.has(i)) pop.push(i);
     pop.sort((a, b) => f.votes[b] - f.votes[a]);
     el.innerHTML = `<div class="welcome welcome-start"><div class="welcome-copy">
         <h2>Good films.<br>Your kind of good.</h2>
@@ -1372,13 +1507,15 @@ function renderHome() {
   setBackdrop(home.hero ?? -1);
   if (home === homeShown) return;   // same shelves: keep them, posters and all
   homeShown = home;
+  homeOffer = discoveryOffer(home.shelves[0]);
   el.innerHTML = `<div class="home-feature">${home.hero !== undefined ? heroCard(home.hero) : `<div class="welcome"><h2>A fresh perspective.</h2><p>You've explored all your current picks. Rate more films or look through your watchlist.</p></div>`}
     <aside class="home-aside">
       <button class="tonight" data-tonight><span class="ic">${ICON.moon}</span>
         <span class="tx"><b>What to watch tonight</b><span>See picks with your current filters.</span></span>${ICON.chevron}</button>
       <div class="taste-note"><h3>A taste all your own.</h3><p>${S.rated.toLocaleString()} films rated. Your opinions shape every recommendation.</p>
         ${home.pair ? '<button class="text-link" data-compare>Refine your top picks with one comparison</button>' : '<button class="text-link" data-go="rate">Keep shaping your taste ' + ICON.chevron + '</button>'}</div>
-    </aside></div>` + home.shelves.map((sh) => shelfHtml(sh)).join("");
+    </aside></div>` + home.shelves.map((sh, n) => shelfHtml(sh, true, n === 0 ? homeOffer : null)).join("");
+  observeDiscovery();
 }
 
 async function comparePicks() {
@@ -1692,7 +1829,8 @@ function browseList(test, mood = null, n = 60) {
     return varied(items.sort((a, b) => home.key.get(b) - home.key.get(a)), home.key).slice(0, n);
   }
   items = [];
-  for (let i = 0; i < E.n; i++) if (E.films.votes[i] >= 5000 && !S.answers.has(i) && !isSnoozed(i) && !noArt.has(i) && test(i)) items.push(i);
+  const blocked = new Set([...hidden, ...watch, ...seenOnly].map(idx));
+  for (let i = 0; i < E.n; i++) if (E.films.votes[i] >= 5000 && S.answers.get(i) == null && !blocked.has(i) && !isSnoozed(i) && !noArt.has(i) && test(i)) items.push(i);
   if (mood) items = moodItems(mood, items);
   return items.sort((a, b) => E.films.votes[b] - E.films.votes[a]).slice(0, n);
 }
@@ -1801,6 +1939,14 @@ function renderMe() {
 function renderSettings() {
   renderServices();
   renderBackup();
+  renderDiscoveryResults();
+  const quiz = $("quiz-study");
+  if (quiz) {
+    quiz.checked = !!prefs.quizStudy;
+    $("quiz-group").textContent = prefs.quizStudy
+      ? (S.quizPolicy === "decision" ? "Your group gets questions aimed at improving the top three picks." : "Your group gets the usual taste questions for comparison.")
+      : "";
+  }
   $("unhide").hidden = hidden.size === 0;
   $("unhide").textContent = `Unhide ${hidden.size} film${hidden.size === 1 ? "" : "s"}`;
   $("updated").textContent = `Film data updated ${E.meta.updated}.`;
@@ -2215,7 +2361,8 @@ async function importFile(file, source = "auto") {
 
 // A backup is every stored key (K), as saved: {app, version, saved, data: {key: value}}.
 const CLEAN = { [K.answers]: clean.answers, [K.hidden]: clean.ids, [K.snoozed]: clean.snoozed, [K.skipLog]: clean.skipLog, [K.watch]: clean.ids, [K.seen]: clean.ids,
-  [K.friends]: clean.friends, [K.queue]: clean.ids, [K.diary]: clean.diary, [K.favs]: clean.favs, [K.comparisons]: clean.comparisons };
+  [K.friends]: clean.friends, [K.queue]: clean.ids, [K.diary]: clean.diary, [K.favs]: clean.favs, [K.comparisons]: clean.comparisons,
+  [K.discoveries]: clean.discoveries };
 
 function renderBackup() {
   const n = answers.filter(([, a]) => a != null).length;
@@ -2304,6 +2451,7 @@ async function restoreBackup(file) {
     store.set(K.friends, union(friends, list(K.friends), (f) => f.id));
     store.set(K.favs, union(favs, list(K.favs)).slice(0, FAVS_MAX));   // ones not loved here drop out on reload
     store.set(K.comparisons, clean.comparisons([...comparisons, ...list(K.comparisons)]));
+    store.set(K.discoveries, union(discoveryRows(), list(K.discoveries), (row) => row.visit));
     const theirs = clean.prefs(d[K.prefs]);
     store.set(K.prefs, { ...prefs, services: prefs.services.length ? prefs.services : theirs.services, name: prefs.name || theirs.name });
   }
@@ -2314,6 +2462,11 @@ async function restoreBackup(file) {
 // ---------------------------------------------------------------- navigation
 
 function show(v, { knownTitles = false } = {}) {
+  if (view === "home" && v !== view) {
+    homeVisit = homeOffer = null;
+    homeShown = null;
+    discoveryObserver?.disconnect();
+  }
   if (v === "imdb-import" && view !== v) {
     imdbImportFrom = view === "settings" ? "settings" : "home";
     $("imdb-back").dataset.go = imdbImportFrom;
@@ -2427,6 +2580,7 @@ function wire() {
   });
   $("home").addEventListener("click", (ev) => {
     const at = (sel) => ev.target.closest(sel);
+    recordDiscovery(at("[data-discovery]"));
     const n = (el, k) => Number(el.dataset[k]);
     let b;
     if ((b = at("[data-trailer]"))) openFilm(n(b, "trailer"), { play: true });
@@ -2573,6 +2727,20 @@ function wire() {
   });
   $("taste-card").addEventListener("click", openTasteCard);
   $("backup-save").addEventListener("click", saveBackup);
+  $("quiz-study")?.addEventListener("change", (ev) => {
+    const next = { ...prefs, quizStudy: ev.target.checked, seed: prefs.seed ?? newSeed() };
+    if (store.set(K.prefs, next)) {
+      prefs = next;
+      rateStack = [];
+      rebuild();
+    }
+    renderSettings();
+  });
+  document.addEventListener("visibilitychange", observeDiscovery);
+  $("discovery-results")?.addEventListener("click", (ev) => {
+    const button = ev.target.closest("[data-outcome]"), visit = button?.closest("[data-discovery-visit]")?.dataset.discoveryVisit;
+    if (visit && updateDiscovery(visit, button.dataset.outcome)) toast("Follow-up saved", () => updateDiscovery(visit, null));
+  });
   $("backup-file").addEventListener("change", (ev) => {
     const file = ev.target.files?.[0];
     if (file) restoreBackup(file);
@@ -2584,9 +2752,10 @@ function wire() {
     resetImport();
     answers = []; hidden.clear(); snoozed.clear(); skipLog.clear(); watch = []; seenOnly.clear(); diary = []; rateQueue = []; rateStack = []; favs = [];
     comparisons = []; store.set(K.comparisons, comparisons);
+    homeVisit = homeOffer = null; discoveryObserver?.disconnect(); store.set(K.discoveries, []);
     store.set(K.snoozed, []); store.set(K.skipLog, []); store.set(K.favs, favs);
     store.set(K.diary, diary); saveQueue(); saveAll();
-    prefs.seed = newSeed(); savePrefs(); rebuild(); show("rate");
+    prefs.seed = newSeed(); prefs.quizStudy = false; savePrefs(); rebuild(); show("rate");
   });
 }
 
