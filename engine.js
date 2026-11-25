@@ -8,6 +8,7 @@
 // share ~2.5 of 12 films (all 12 without it), and a wall teaches ~80% as much.
 const VARY = 2;
 const VARY_RATINGS = 20;
+const DECISION_SLATE = 12;
 
 /** meta.json, always checked for a newer build (it names the build the rest belong to). */
 export async function loadMeta(base = "data/") {
@@ -216,12 +217,21 @@ export class Engine {
 }
 
 export class Session {
+  // A stable, independent split of the saved quiz seed, including after a reload.
+  static quizPolicy(seed) {
+    if (!Number.isInteger(seed)) return "information";
+    let h = Math.imul(seed ^ 0x4b41454c, 0x85ebca6b);
+    h = Math.imul(h ^ (h >>> 16), 0xc2b2ae35);
+    return (h >>> 31) ? "decision" : "information";
+  }
+
   /** list: [[filmIndex, answer], ...]; answer is a label, exact stars, or null (haven't seen).
    *  seen: films watched but not rated (imported); they only inform "have you seen it?".
    *  seed: varies which films the quiz opens with (see weights()); omit for the plain quiz.
    *  favs: your all-time favourites (film indices, among the rated films; see obs()). */
   constructor(engine, list = [], seen = [], seed = null, favs = []) {
     this.e = engine;
+    this.quizPolicy = "information";
     this.seen = new Set(seen);
     this.favs = new Set(favs);
     this.jitter = seed == null ? null : engine.jitter(seed);
@@ -330,12 +340,17 @@ export class Session {
   nextBatch(n, skip = null) {
     const e = this.e, d = e.d, px = e.poolX(), p = this.seenProb(), w = this.weights();
     const S = this.cov.slice(), q = this.quads().slice(), picked = new Set();
+    // Target the lead question only. The rest of a poster wall still explores
+    // complementary directions and conditions on the lead using the same downdate.
+    const lead = n > 0 ? this.decisionQuestion(skip, p, q) : -1;
     for (let k = 0; k < n; k++) {
-      let best = -1, bestScore = -Infinity;
-      for (let i = 0; i < e.pool; i++) {
-        if (this.answers.has(i) || picked.has(i) || skip?.has(i)) continue;
-        const s = w[i] * p[i] * 0.5 * Math.log1p(Math.max(0, q[i]) / e.noise);
-        if (s > bestScore) { bestScore = s; best = i; }
+      let best = k === 0 ? lead : -1, bestScore = -Infinity;
+      if (best < 0) {
+        for (let i = 0; i < e.pool; i++) {
+          if (this.answers.has(i) || picked.has(i) || skip?.has(i)) continue;
+          const s = w[i] * p[i] * 0.5 * Math.log1p(Math.max(0, q[i]) / e.noise);
+          if (s > bestScore) { bestScore = s; best = i; }
+        }
       }
       if (best < 0) break;
       picked.add(best);
@@ -523,10 +538,68 @@ export class Session {
     return w;
   }
 
+  /** The shortlist a question could help distinguish. Use the actual Home
+   * picks when available. Before Home, use the highest predicted eligible,
+   * well-supported films as a proxy. The bounded list avoids sorting the catalog. */
+  decisionSlate() {
+    const e = this.e, scores = this.scores();
+    const eligible = (i) => Number.isInteger(i) && i >= 0 && i < e.n
+      && this.answers.get(i) == null && !this.seen.has(i) && (this.quizEligible?.(i) ?? true);
+    const home = [...new Set(this.quizTargets?.() ?? [])].filter(eligible).slice(0, DECISION_SLATE);
+    if (home.length > 3) return home;
+    const top = [];
+    for (let i = 0; i < e.n; i++) {
+      if (e.films.votes[i] < 2000 || (top.length === DECISION_SLATE && scores[i] <= scores[top.at(-1)])) continue;
+      if (!eligible(i)) continue;
+      let j = top.length;
+      while (j && scores[i] > scores[top[j - 1]]) j--;
+      top.splice(j, 0, i);
+      if (top.length > DECISION_SLATE) top.pop();
+    }
+    return top;
+  }
+
+  /** Two equally weighted possible rating residuals (+/- one predictive SD)
+   * approximate the expected value of a question for the best three picks.
+   * A candidate's new posterior mean for target t is its old mean plus
+   * cov(t, question) / SD(question) times the standardized residual.
+   * Common shifts in all picks cancel. Skip the question when no decision moves. */
+  decisionQuestion(skip, p, q) {
+    if (this.quizPolicy !== "decision" || this.rated < 3 || this.rated >= VARY_RATINGS) return -1;
+    const e = this.e, d = e.d;
+    if (e.fullN > e.n) return -1;
+    const slate = this.decisionSlate();
+    if (slate.length <= 3) return -1;
+    const scores = this.scores(), means = slate.map((i) => scores[i]);
+    const rows = slate.map((i) => matVec(this.cov, e.x(i), d));
+    const targets = new Set(slate), px = e.poolX();
+    const plus = new Float64Array(means.length), minus = new Float64Array(means.length);
+    const before = topThreeSum(means);
+    let best = -1, bestGain = 1e-9;
+    for (let i = 0, offset = 0; i < e.pool; i++, offset += d) {
+      if (this.answers.has(i) || skip?.has(i) || targets.has(i)) continue;
+      const sd = Math.sqrt(e.noise + Math.max(0, q[i]));
+      for (let j = 0; j < means.length; j++) {
+        let change = 0;
+        for (let k = 0; k < d; k++) change += rows[j][k] * px[offset + k];
+        change /= sd;
+        plus[j] = means[j] + change;
+        minus[j] = means[j] - change;
+      }
+      // Same action-cost assumptions as the paired sixty-second benchmark:
+      // four seconds to rate a familiar film, two to say it is unseen.
+      const gain = p[i] * ((topThreeSum(plus) + topThreeSum(minus)) / 2 - before) / (2 + 2 * p[i]);
+      if (gain > bestGain) { best = i; bestGain = gain; }
+    }
+    return best;
+  }
+
   /** The next film to ask about: highest P(seen) x information gained if rated
    *  (times weights(), which varies the opening films from person to person). */
   next(skip = null) {
     const e = this.e, p = this.seenProb(), w = this.weights(), q = this.quads();
+    const focused = this.decisionQuestion(skip, p, q);
+    if (focused >= 0) return focused;
     let best = -1, bestScore = -Infinity;
     for (let i = 0; i < e.pool; i++) {
       if (this.answers.has(i) || skip?.has(i)) continue;
@@ -538,6 +611,16 @@ export class Session {
 }
 
 // --- small dense linear algebra -------------------------------------------
+
+function topThreeSum(values) {
+  let first = -Infinity, second = -Infinity, third = -Infinity;
+  for (const value of values) {
+    if (value > first) { third = second; second = first; first = value; }
+    else if (value > second) { third = second; second = value; }
+    else if (value > third) third = value;
+  }
+  return first + second + third;
+}
 
 /** Standard normal CDF (Abramowitz & Stegun 7.1.26, |error| < 1.5e-7). */
 export function phi(x) {
