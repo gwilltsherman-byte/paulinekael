@@ -28,6 +28,8 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    outputs:
+      pages_enabled: ${{ steps.pages.outputs.enabled }}
     timeout-minutes: 90  # the first poster lookup takes ~30 min; later runs a few seconds
     steps:
       - uses: actions/checkout@v4
@@ -68,6 +70,21 @@ jobs:
         env:
           REQUIRE_POSTERS: ${{ secrets.TMDB_TOKEN && '1' || '' }}   # with a token, posters and streaming data must have come through
         run: node scripts/smoke.mjs site/data
+      - name: Check whether GitHub Pages is enabled
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          enabled=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.has_pages')
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+          if [ "$enabled" = false ]; then
+            echo "The static build is on the site branch. To publish it, select GitHub Actions in Settings → Pages and run this workflow again." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Package the tested app for GitHub Pages
+        if: steps.pages.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
       - name: Keep the caches for next time (own branch, so visitors aren't served 50 MB of them)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -106,3 +123,18 @@ jobs:
           if git diff --cached --quiet; then exit 0; fi
           git commit -qm "App build $(date -u +%F)"
           git push -q origin HEAD:refs/heads/site
+
+  deploy-pages:
+    needs: publish
+    if: needs.publish.outputs.pages_enabled == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy the tested build
+        id: deployment
+        uses: actions/deploy-pages@v4
