@@ -1,0 +1,83 @@
+{
+  "dataset": "GroupLens MovieLens 32M",
+  "dataSource": "https://grouplens.org/datasets/movielens/32m/",
+  "archiveMd5": "d472be332d4daa821edc399621853b57",
+  "method": "Paired 60-second replay of the Rate card with its one-card lookahead. The control chooses familiar, informative questions. The variant selects a familiar question with expected value for the best three of a bounded shortlist, from 3 through 19 completed ratings. Each arm starts with the same empty profile and saved quiz seed. A rating costs 4 assumed seconds and an unseen answer costs 2.",
+  "split": "Held-out viewers, with 30% of their ratings withheld (at least 10, at most 1000), as prepared by scripts/refinement_inputs.py. Films withheld for grading cannot be asked about. Their ratings are absent from the question policy.",
+  "measure": "Among viewers reaching three ratings in both arms, compare the share of the three graded picks rated at least 4 stars. Each arm grades its own highest-scoring held-out films with at least 2,000 IMDb votes, using the same match ranking and eligibility rule. Additional outputs include the three-rating threshold, observed cards and per-viewer yield with unready viewers counted as zero.",
+  "interval": "Paired mean difference plus or minus 1.96 standard errors across evaluable viewers. Metric values are proportions.",
+  "scope": "The replay uses historical ratings of previously watched films, catalog build 20261116194147, and a simulated time budget. It assesses cold-start Rate cards before visiting Home. Human timing, post-recommendation watches and the poster-wall experience require prospective evaluation.",
+  "reproduceValidation": "python scripts/refinement_inputs.py --split val --users 400 | node scripts/compare_quiz.mjs --data site/data",
+  "reproduceTest": "python scripts/refinement_inputs.py --split test --users 5000 | node scripts/compare_quiz.mjs --data site/data",
+  "validation400": {
+    "catalogueBuild": "20261116194147",
+    "users": 400,
+    "budgetSeconds": 60,
+    "costSeconds": {
+      "rated": 4,
+      "unseen": 2
+    },
+    "metric": "Historical 4+ among three popular withheld films; simulated Rate-card time",
+    "eligibleUsers": 400,
+    "bothReady": 371,
+    "arms": {
+      "information": {
+        "ready": 371,
+        "averageCards": 21.815,
+        "averageRatings": 7.8925,
+        "averageSeconds": 59.415,
+        "historicalFourPlusShareAmongPaired": 0.7753818508535493,
+        "historicalFourPlusShareIncludingUnreadyAsZero": 0.719166666666667
+      },
+      "decision": {
+        "ready": 371,
+        "averageCards": 22.1725,
+        "averageRatings": 7.6175,
+        "averageSeconds": 59.58,
+        "historicalFourPlusShareAmongPaired": 0.7789757412398922,
+        "historicalFourPlusShareIncludingUnreadyAsZero": 0.7225
+      }
+    },
+    "pairedDifference": 0.0035938903863432167,
+    "approximate95PercentPairedInterval": [
+      -0.01006031679129643,
+      0.017248097563982864
+    ]
+  },
+  "test5000": {
+    "catalogueBuild": "20261116194147",
+    "users": 5000,
+    "budgetSeconds": 60,
+    "costSeconds": {
+      "rated": 4,
+      "unseen": 2
+    },
+    "metric": "Historical 4+ among three popular withheld films; simulated Rate-card time",
+    "eligibleUsers": 5000,
+    "bothReady": 4604,
+    "arms": {
+      "information": {
+        "ready": 4604,
+        "averageCards": 21.7846,
+        "averageRatings": 7.9436,
+        "averageSeconds": 59.4564,
+        "historicalFourPlusShareAmongPaired": 0.8140023168259477,
+        "historicalFourPlusShareIncludingUnreadyAsZero": 0.7495333333333327
+      },
+      "decision": {
+        "ready": 4604,
+        "averageCards": 22.1358,
+        "averageRatings": 7.618,
+        "averageSeconds": 59.5076,
+        "historicalFourPlusShareAmongPaired": 0.810816681146828,
+        "historicalFourPlusShareIncludingUnreadyAsZero": 0.7465999999999993
+      }
+    },
+    "pairedDifference": -0.0031856356791196056,
+    "approximate95PercentPairedInterval": [
+      -0.007302762498165279,
+      0.0009314911399260673
+    ]
+  },
+  "rollout": "The validation and held-out estimates differ in direction, and the held-out interval includes zero. Ordinary quiz behavior stays the default. Settings offers an opt-in, on-device randomized comparison."
+}
